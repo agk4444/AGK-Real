@@ -1,11 +1,11 @@
 # AGK-Real
 
-An English-like programming language that compiles to real, runnable Python. You write `define function`, `create`, `set`, `if`, `while` — the compiler turns it into readable Python 3 with no runtime dependency.
+An English-like programming language that compiles to real, runnable Python. You write `to`, `say`, `name is`, `repeat` — plain English — and the compiler turns it into readable Python 3 with no runtime dependency.
 
 <!-- verify: id=home-hello output="hello, agk\n" -->
 ```agk
-define function main:
-    print("hello, agk")
+to main:
+    say "hello, agk"
 ```
 
 > [!NOTE]
