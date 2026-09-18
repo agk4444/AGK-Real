@@ -234,7 +234,13 @@ def _reads_stmt(s):
 
 def _writes_stmt(s):
     """Local names definitely bound by s itself (not nested blocks)."""
-    if isinstance(s, (A.CreateStmt, A.SetStmt)):
+    if isinstance(s, A.SetStmt):
+        return {s.name}
+    if isinstance(s, A.CreateStmt) and not s.soft:
+        # `create` emits no code, but a hard declaration starts the name's
+        # live range. A soft (Simple AGK `x is ...`) redeclare is a pure
+        # no-op: it must not kill liveness, or an earlier `x = <literal>`
+        # would be wrongly dropped as a dead store.
         return {s.name}
     return set()
 

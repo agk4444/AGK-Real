@@ -246,7 +246,11 @@ class TypeChecker:
 
     def _check_stmt(self, s):
         if isinstance(s, A.CreateStmt):
-            self._scope[s.name] = s.type_name
+            # v0.6.0 (Simple AGK): a soft `x is <expr>` redeclare keeps the
+            # original declared type, so reassignment is checked exactly
+            # like `set` (a type mismatch is still an error).
+            if not s.soft or s.name not in self._scope:
+                self._scope[s.name] = s.type_name
         elif isinstance(s, A.SetStmt):
             got = self._type_of(s.value)
             want = self._scope.get(s.name)

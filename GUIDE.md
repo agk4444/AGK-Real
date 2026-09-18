@@ -9,7 +9,7 @@ suite compiles each one.
 
 ## Install and run
 
-AGK-Real 0.5.0 is PyPI-ready. From the repo root:
+AGK-Real 0.6.0 is PyPI-ready. From the repo root:
 
 ```sh
 pip install .            # installs the `agk` command system-wide

@@ -151,6 +151,15 @@ class Session:
         if stripped.split()[0] in ("define", "class", "import"):
             self.run_program(chunk)
             return True
+        if _looks_like_simple_statement(chunk):
+            # v0.6.0 (Simple AGK): `x is 10` must assign like it does in a
+            # file, not evaluate `x == 10`; route statement forms to
+            # statement handling first.
+            try:
+                self.run_statements(chunk)
+            except AGKError:
+                self.run_expression(chunk)
+            return True
         try:
             self.run_expression(chunk)
         except AGKError:
@@ -161,6 +170,47 @@ class Session:
                 # more informative one (e.g. `set x to`).
                 raise stmt_err from None
         return True
+
+
+def _looks_like_simple_statement(chunk):
+    """True when a REPL chunk starts with a Simple AGK statement form.
+
+    Mirrors the parser's statement dispatch: `name is <expr>` (but not
+    the `is not` / `is greater|less than` comparisons), `say`/`ask`/`repeat`
+    followed by an expression, and `increase`/`decrease` followed by a
+    name. Anything else keeps the historical expression-first order.
+    """
+    from .lexer import Lexer
+    from .tokens import TokenType as T
+    try:
+        toks = [t for t in Lexer(chunk, "<repl>").tokenize()
+                if t.type not in (T.NEWLINE, T.EOF)]
+    except AGKError:
+        return False
+    if not toks or toks[0].type != T.IDENTIFIER:
+        return False
+    word = toks[0].value
+
+    def is_word(i, value):
+        return (i < len(toks) and toks[i].type == T.IDENTIFIER
+                and toks[i].value == value)
+
+    if is_word(1, "is"):
+        # comparison tails stay expressions: `x is not 5`,
+        # `x is greater than 5`
+        if len(toks) > 2 and toks[2].type == T.NOT:
+            return False
+        if (is_word(2, "greater") or is_word(2, "less")) \
+                and is_word(3, "than"):
+            return False
+        return True
+    if word in ("increase", "decrease"):
+        return len(toks) > 1 and toks[1].type == T.IDENTIFIER
+    if word in ("say", "ask", "repeat"):
+        return len(toks) > 1 and toks[1].type in (
+            T.INT, T.FLOAT, T.STRING, T.TRUE, T.FALSE, T.IDENTIFIER, T.SELF,
+            T.LBRACKET, T.LBRACE, T.MINUS, T.NOT, T.AWAIT)
+    return False
 
 
 def _read_chunk():

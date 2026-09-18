@@ -91,6 +91,11 @@ class ClassDef(Node):
 class CreateStmt(Node):
     name: str
     type_name: str
+    # v0.6.0 (Simple AGK): when True, this declaration came from `x is <expr>`
+    # or `ask ... giving x` — declare the name if it is new in scope, but
+    # silently treat it as an assignment when the name already exists
+    # (never a redeclare error). Always False for explicit `create`.
+    soft: bool = False
 
 
 @dataclass

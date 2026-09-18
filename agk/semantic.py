@@ -331,11 +331,23 @@ class SemanticAnalyzer:
             if isinstance(s, A.ReturnStmt):
                 seen_return = True
 
+    # v0.6.0 (Simple AGK): hidden `repeat` loop variables never warn.
+    _REPEAT_VAR_PREFIX = "__agk_repeat_"
+
     def _check_stmt(self, s):
         if isinstance(s, A.CreateStmt):
             if s.name in self._scope.vars:
-                self.error(f"variable '{s.name}' is already declared", s)
-            self._scope.declare(s.name, s)
+                # v0.6.0: `x is <expr>` / `ask ... giving x` redeclare as
+                # assignment — never a redeclare error.
+                if not s.soft:
+                    self.error(f"variable '{s.name}' is already declared", s)
+            elif (s.soft and self._class_fields is not None
+                    and s.name in self._class_fields):
+                # assigning to a field: leave it undeclared so the SetStmt
+                # below rewrites to self.<field> = value, like `set` does
+                pass
+            else:
+                self._scope.declare(s.name, s)
         elif isinstance(s, A.SetStmt):
             s.value = self._check_expr(s.value)
             scope, entry = self._scope.lookup(s.name)
@@ -367,6 +379,10 @@ class SemanticAnalyzer:
             if s.var not in self._scope.vars:
                 self._scope.declare(s.var, s)
             self._scope.vars[s.var]["assigned"] = True
+            if s.var.startswith(self._REPEAT_VAR_PREFIX):
+                # v0.6.0: hidden `repeat` loop variable — never read by
+                # user code, so exempt it from the unused-variable warning
+                self._scope.vars[s.var]["used"] = True
             self._check_block(s.body)
         elif isinstance(s, A.ForRangeStmt):
             s.start = self._check_expr(s.start)

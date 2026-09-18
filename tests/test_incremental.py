@@ -172,7 +172,7 @@ def test_manifest_records_version_and_hashes(tmp_path):
     main_p = write(tmp_path, "main.agk", MAIN)
     build(main_p)
     data = json.loads((cache_dir(tmp_path) / "manifest.json").read_text())
-    assert data["version"] == "0.5.0"
+    assert data["version"] == "0.6.0"
     assert data["format"] == 1
     entry_paths = list(data["entries"])
     assert any(p.endswith("utils.agk") for p in entry_paths)

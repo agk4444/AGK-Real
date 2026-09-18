@@ -16,6 +16,8 @@ class Parser:
         self.tokens = tokens
         self.filename = filename
         self.pos = 0
+        # v0.6.0 (Simple AGK): counter for hidden `repeat` loop variables.
+        self._repeat_counter = 0
 
     # -- token plumbing -------------------------------------------------
 
@@ -62,6 +64,9 @@ class Parser:
                 statements.append(self.parse_top_level_define())
             elif self.check(T.EXTERN):
                 statements.append(self.parse_extern_def())
+            elif self.check(T.TO):
+                # v0.6.0 (Simple AGK): `to <name> ...:` at top level.
+                statements.append(self.parse_to_function_def())
             else:
                 self.error(f"unexpected {self.peek().value!r} at top level; "
                            f"expected 'import', 'define', or 'extern'")
@@ -275,6 +280,9 @@ class Parser:
                 else:
                     self.error("expected 'constructor' or 'function' "
                                "after 'define' in class body", defn)
+            elif self.check(T.TO):
+                # v0.6.0 (Simple AGK): `to <name> ...:` as a method.
+                methods.append(self.parse_to_function_def())
             else:
                 self.error("expected 'variable', 'define constructor', "
                            "or 'define function' in class body")
@@ -308,9 +316,45 @@ class Parser:
         while not self.check(T.DEDENT, T.EOF):
             if self.match(T.NEWLINE):
                 continue
-            stmts.append(self.parse_statement())
+            result = self.parse_statement()
+            # v0.6.0 (Simple AGK): some forms desugar to several statements.
+            if isinstance(result, list):
+                stmts.extend(result)
+            else:
+                stmts.append(result)
         self.expect(T.DEDENT, "expected end of block")
         return stmts
+
+    # -- Simple AGK (v0.6.0): contextual plain-English forms ------------------
+    #
+    # `to`, `say`, `ask`, `repeat`, `increase`, `decrease` and `otherwise`
+    # are NOT new reserved words. Each is only treated specially at
+    # statement start (or, for `otherwise`, right after an if/elif block)
+    # when the following tokens match the full pattern; every other use —
+    # including as a variable or function name — parses exactly as before.
+    # `is`, `giving`, `times`, `time`, `by`, `with`, `greater`, `than`,
+    # `less`, `equal` stay plain NAME tokens matched by pattern.
+
+    # Tokens that can begin an expression, for `say`/`ask`/`repeat`
+    # dispatch. LPAREN is deliberately excluded: `say(x)` stays a call to
+    # a user-defined `say`, and NEWLINE/EOF are excluded so a bare `say`
+    # still parses as a variable reference.
+    _SIMPLE_EXPR_START = (
+        T.INT, T.FLOAT, T.STRING, T.TRUE, T.FALSE, T.IDENTIFIER, T.SELF,
+        T.LBRACKET, T.LBRACE, T.MINUS, T.NOT, T.AWAIT,
+    )
+
+    def _peek_is_word(self, offset, value):
+        """True when the token `offset` ahead is a plain NAME `value`."""
+        i = self.pos + offset
+        return (i < len(self.tokens)
+                and self.tokens[i].type == T.IDENTIFIER
+                and self.tokens[i].value == value)
+
+    def _next_starts_simple_expr(self):
+        i = self.pos + 1
+        return (i < len(self.tokens)
+                and self.tokens[i].type in self._SIMPLE_EXPR_START)
 
     def parse_statement(self):
         tok = self.peek()
@@ -332,6 +376,23 @@ class Parser:
             return self.parse_return()
         if tok.type == T.YIELD:
             return self.parse_yield()
+        if tok.type == T.TO:
+            self.error("'to' function definitions are only allowed at top "
+                       "level or in a class body (like 'define')", tok)
+        if tok.type == T.IDENTIFIER and self._peek_is_word(1, "is"):
+            # `name is <expr>` — before the say/ask/repeat/increase words
+            # below, so `say is 5` declares `say` rather than erroring.
+            return self.parse_is_statement()
+        if (tok.type == T.IDENTIFIER and tok.value in ("increase", "decrease")
+                and self._next_is_identifier()):
+            return self.parse_increase_decrease()
+        if (tok.type == T.IDENTIFIER and tok.value in ("say", "ask", "repeat")
+                and self._next_starts_simple_expr()):
+            if tok.value == "say":
+                return self.parse_say()
+            if tok.value == "ask":
+                return self.parse_ask()
+            return self.parse_repeat()
         if tok.type == T.DEFINE:
             self.error("'define' is only allowed at top level or in a class body")
         if tok.type == T.EXTERN:
@@ -342,6 +403,165 @@ class Parser:
         expr = self.parse_expression()
         self.expect(T.NEWLINE, "expected end of line")
         return A.ExprStmt(expr, line=expr.line, col=expr.col)
+
+    def _next_is_identifier(self):
+        i = self.pos + 1
+        return (i < len(self.tokens)
+                and self.tokens[i].type == T.IDENTIFIER)
+
+    def _infer_simple_type(self, value):
+        """v0.6.0: inferred declared type for `x is <expr>`. Literals get
+        their type; anything else is dynamically typed (None)."""
+        if isinstance(value, A.IntLit):
+            return "Integer"
+        if isinstance(value, A.FloatLit):
+            return "Float"
+        if isinstance(value, A.StringLit):
+            return "String"
+        if isinstance(value, A.BoolLit):
+            return "Boolean"
+        if isinstance(value, A.ListLit):
+            return "List"
+        if isinstance(value, A.DictLit):
+            return "Dict"
+        return None
+
+    def parse_is_statement(self):
+        """`name is <expr>`: declare-with-inference when `name` is new in
+        scope, plain assignment when it exists (never a redeclare error).
+        Desugars to a soft CreateStmt + SetStmt; semantic analysis decides
+        declare vs. assign from scope.
+
+        When the words after `is` read as a comparison (`is not ...`,
+        `is greater|less than ...`), the whole line is an expression
+        statement instead, matching the expression-level `is` rules."""
+        name_tok = self.expect(T.IDENTIFIER, "expected variable name")
+        is_tok = self.advance()  # the 'is' NAME
+        if self.check(T.NOT) or (
+                self._peek_is_word(0, "greater")
+                or self._peek_is_word(0, "less")) \
+                and self._peek_is_word(1, "than"):
+            # comparison tail: rewind and parse as an expression statement
+            self.pos -= 2
+            expr = self.parse_expression()
+            self.expect(T.NEWLINE, "expected end of line")
+            return A.ExprStmt(expr, line=expr.line, col=expr.col)
+        value = self.parse_expression()
+        self.expect(T.NEWLINE, "expected end of line")
+        create = A.CreateStmt(name_tok.value, self._infer_simple_type(value),
+                              soft=True,
+                              line=name_tok.line, col=name_tok.column)
+        assign = A.SetStmt(name_tok.value, value,
+                           line=is_tok.line, col=is_tok.column)
+        return [create, assign]
+
+    def parse_say(self):
+        """`say <expr>` — Simple AGK for `print(<expr>)`."""
+        kw = self.advance()  # 'say'
+        value = self.parse_expression()
+        self.expect(T.NEWLINE, "expected end of line")
+        return A.ExprStmt(
+            A.Call(A.Name("print", line=kw.line, col=kw.column), [value],
+                   line=kw.line, col=kw.column),
+            line=kw.line, col=kw.column)
+
+    def parse_ask(self):
+        """`ask <expr> giving <name>` — read a line with `input(<expr>)`
+        into `name` (declared as String, or assigned when it exists)."""
+        kw = self.advance()  # 'ask'
+        prompt = self.parse_expression()
+        g = self.peek()
+        if not (g.type == T.IDENTIFIER and g.value == "giving"):
+            self.error("expected 'giving <name>' after 'ask <expr>'", g)
+        self.advance()
+        name = self.expect(T.IDENTIFIER, "expected variable name after "
+                                         "'giving'")
+        self.expect(T.NEWLINE, "expected end of line")
+        create = A.CreateStmt(name.value, "String", soft=True,
+                              line=kw.line, col=kw.column)
+        assign = A.SetStmt(
+            name.value,
+            A.Call(A.Name("input", line=kw.line, col=kw.column), [prompt],
+                   line=kw.line, col=kw.column),
+            line=kw.line, col=kw.column)
+        return [create, assign]
+
+    def parse_repeat(self):
+        """`repeat <expr> times:` — counted loop. Desugars to
+        `for <hidden> in range(<expr>):` with a generated variable name
+        that cannot collide with user code."""
+        kw = self.advance()  # 'repeat'
+        count = self.parse_expression()
+        t = self.peek()
+        if not (t.type == T.IDENTIFIER and t.value in ("times", "time")):
+            self.error("expected 'times' (or 'time') after 'repeat <expr>'",
+                       t)
+        self.advance()
+        self.expect(T.COLON, "expected ':' after 'repeat <expr> times'")
+        var = f"__agk_repeat_{self._repeat_counter}"
+        self._repeat_counter += 1
+        body = self.parse_block()
+        return A.ForEachStmt(
+            var,
+            A.Call(A.Name("range", line=kw.line, col=kw.column), [count],
+                   line=kw.line, col=kw.column),
+            body, line=kw.line, col=kw.column)
+
+    def parse_increase_decrease(self):
+        """`increase <name> [by <expr>]` / `decrease <name> [by <expr>]` —
+        `<name> = <name> +/- (<expr>)`, defaulting the amount to 1."""
+        kw = self.advance()  # 'increase' or 'decrease'
+        name = self.expect(T.IDENTIFIER, "expected variable name")
+        g = self.peek()
+        if g.type == T.IDENTIFIER and g.value == "by":
+            self.advance()
+            amount = self.parse_expression()
+        else:
+            amount = A.IntLit(1, line=kw.line, col=kw.column)
+        self.expect(T.NEWLINE, "expected end of line")
+        op = "+" if kw.value == "increase" else "-"
+        target = A.Name(name.value, line=name.line, col=name.column)
+        return A.SetStmt(name.value,
+                         A.BinOp(target, op, amount,
+                                 line=kw.line, col=kw.column),
+                         line=kw.line, col=kw.column)
+
+    def parse_to_function_def(self):
+        """`to <name> [with <params>] [and returns <Type>]:` — Simple AGK
+        alias for `define function`. Params are comma-separated
+        `name [as Type]`; an omitted type is dynamically typed."""
+        kw = self.expect(T.TO, "expected 'to'")
+        name_tok = self.expect(T.IDENTIFIER, "expected function name "
+                                             "after 'to'")
+        params = []
+        if self._peek_is_word(0, "with"):
+            self.advance()
+            params = self._parse_simple_params()
+        return_type = None
+        if self.match(T.AND):
+            self.expect(T.RETURNS, "expected 'returns' after 'and'")
+            return_type = self.expect(T.IDENTIFIER,
+                                      "expected return type name").value
+        self.expect(T.COLON, "expected ':' after function signature")
+        body = self.parse_block()
+        return A.FunctionDef(name_tok.value, params, return_type, body,
+                             line=kw.line, col=kw.column)
+
+    def _parse_simple_params(self):
+        params = [self._parse_simple_param()]
+        while self.match(T.COMMA):
+            params.append(self._parse_simple_param())
+        return params
+
+    def _parse_simple_param(self):
+        name = self.expect(T.IDENTIFIER, "expected parameter name")
+        type_name = None
+        if self.match(T.AS):
+            type_name = self.expect(
+                T.IDENTIFIER,
+                f"expected type for parameter {name.value!r}").value
+        return A.Param(name.value, type_name, None,
+                       line=name.line, col=name.column)
 
     def _next_is(self, type_):
         return (self.pos + 1 < len(self.tokens)
@@ -365,19 +585,45 @@ class Parser:
         self.expect(T.NEWLINE, "expected end of line")
         return A.SetStmt(name.value, value, line=st.line, col=st.column)
 
+    def _at_otherwise_if(self):
+        """`otherwise if` right after an if/elif block (Simple AGK)."""
+        t = self.tokens
+        p = self.pos
+        return (p + 1 < len(t) and t[p].type == T.IDENTIFIER
+                and t[p].value == "otherwise" and t[p + 1].type == T.IF)
+
+    def _at_otherwise(self):
+        """`otherwise:` right after an if/elif block (Simple AGK)."""
+        t = self.tokens
+        p = self.pos
+        return (p + 1 < len(t) and t[p].type == T.IDENTIFIER
+                and t[p].value == "otherwise"
+                and t[p + 1].type == T.COLON)
+
     def parse_if(self):
         kw = self.expect(T.IF, "expected 'if'")
         cond = self.parse_expression()
         self.expect(T.COLON, "expected ':' after 'if' condition")
         then_body = self.parse_block()
         elifs = []
-        while self.match(T.ELIF):
+        while True:
+            if self.match(T.ELIF):
+                pass
+            elif self._at_otherwise_if():
+                self.advance()  # 'otherwise'
+                self.advance()  # 'if'
+            else:
+                break
             econd = self.parse_expression()
             self.expect(T.COLON, "expected ':' after 'elif' condition")
             elifs.append((econd, self.parse_block()))
         else_body = None
         if self.match(T.ELSE):
             self.expect(T.COLON, "expected ':' after 'else'")
+            else_body = self.parse_block()
+        elif self._at_otherwise():
+            self.advance()  # 'otherwise'
+            self.expect(T.COLON, "expected ':' after 'otherwise'")
             else_body = self.parse_block()
         return A.IfStmt(cond, then_body, elifs, else_body,
                         line=kw.line, col=kw.column)
@@ -496,6 +742,15 @@ class Parser:
     def parse_equality(self):
         left = self.parse_comparison()
         while True:
+            # v0.6.0 (Simple AGK): `a is b` -> `a == b`, `a is not b` -> `a != b`
+            if self.check(T.IDENTIFIER) and self.peek().value == "is":
+                is_tok = self.advance()
+                sym = "!="
+                if not self.match(T.NOT):
+                    sym = "=="
+                left = A.BinOp(left, sym, self.parse_comparison(),
+                               line=is_tok.line, col=is_tok.column)
+                continue
             op = self.match(T.EQ, T.NEQ)
             if not op:
                 return left
@@ -503,9 +758,48 @@ class Parser:
             left = A.BinOp(left, sym, self.parse_comparison(),
                            line=op.line, col=op.column)
 
+    def _match_english_comparison(self):
+        """Match `is greater|less than [or equal to]` at the current
+        position (v0.6.0 Simple AGK). Returns (symbol, `is` token) and
+        consumes the words, or None without consuming anything.
+
+        The words stay plain NAME tokens (`or`/`to` lex as keywords and
+        are matched by type); nothing here becomes reserved."""
+        t = self.tokens
+        p = self.pos
+
+        def at(i, type_, value):
+            return (p + i < len(t) and t[p + i].type == type_
+                    and t[p + i].value == value)
+
+        if not at(0, T.IDENTIFIER, "is"):
+            return None
+        if at(1, T.IDENTIFIER, "greater"):
+            sym = ">"
+        elif at(1, T.IDENTIFIER, "less"):
+            sym = "<"
+        else:
+            return None
+        if not at(2, T.IDENTIFIER, "than"):
+            return None
+        end = 3
+        if (at(3, T.OR, "or") and at(4, T.IDENTIFIER, "equal")
+                and at(5, T.TO, "to")):
+            sym += "="
+            end = 6
+        is_tok = t[p]
+        self.pos = p + end
+        return sym, is_tok
+
     def parse_comparison(self):
         left = self.parse_term()
         while True:
+            eng = self._match_english_comparison()
+            if eng is not None:
+                sym, is_tok = eng
+                left = A.BinOp(left, sym, self.parse_term(),
+                               line=is_tok.line, col=is_tok.column)
+                continue
             op = self.match(T.LT, T.GT, T.LTE, T.GTE)
             if not op:
                 return left
@@ -738,7 +1032,7 @@ def parse_expression_src(source, filename="<input>"):
     tok = parser.peek()
     if tok.type not in (T.NEWLINE, T.EOF):
         raise ParserError(f"unexpected {tok.type.name.lower()} after expression",
-                          filename, tok.line, tok.col)
+                          filename, tok.line, tok.column)
     return node
 
 

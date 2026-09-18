@@ -380,3 +380,144 @@ Bundled `.agk` modules, importable by name with no install step:
 Multi-target codegen (JS/Kotlin/…), ternary `?:`,
 `implements`, slices, comprehensions, operator overloading, lambdas.
 Each is a clean parse error if attempted.
+
+## 11. Simple AGK surface (v0.6.0)
+
+A beginner-friendly alias layer over the statements in §4. Every form
+desugars to an existing construct during parsing, so name resolution
+(§6) and code generation (§7) are unchanged. No new reserved words are
+introduced: `say`, `ask`, `repeat`, `increase`, `decrease`,
+`otherwise`, `is`, `giving`, `times`, `time`, `by`, `with`,
+`greater`, `than`, `less` and `equal` remain ordinary identifiers and
+are only treated specially when the complete statement pattern matches
+at statement start (or, for `otherwise`, directly after an if/elif
+block). `to` was already reserved (§2). Existing programs keep their
+meaning: `say(x)` is still a call to a user-defined `say`, and every
+one of these words still works as a variable name.
+
+### 11.1 Inferred declaration: `name is <expr>`
+
+```
+<name> is <expr>
+```
+
+When `<name>` is new in scope, this declares it with an inferred type
+and assigns the value. Literals infer `Integer`, `Float`, `String`,
+`Boolean`, `List` or `Dict`; anything else is dynamically typed. When
+`<name>` already exists — whether from an earlier `is`, from `create`,
+or from `ask ... giving` — it is a plain assignment and never a
+redeclare error; the original declared type still governs, so a
+mismatched reassignment is a type error exactly as with `set`. The
+name must resolve in scope: assigning to an undeclared name is a
+semantic error, as with `set`. Inside class methods, `name is <expr>`
+assigns a field when `<name>` is a declared field, mirroring `set`.
+In the REPL, `x is <expr>` assigns; it does not evaluate `x ==
+<expr>`.
+
+When the words after `is` read as a comparison (`is not ...`,
+`is greater|less than ...`), the line is an expression statement
+instead (§11.5).
+
+### 11.2 `say`, `ask`, `repeat`
+
+```
+say <expr>
+ask <expr> giving <name>
+repeat <expr> times:
+repeat <expr> time:
+```
+
+`say <expr>` is `print(<expr>)`. `ask <expr> giving <name>` evaluates
+`<expr>` as a prompt, reads a line with `input(<expr>)`, and stores it
+in `<name>`, which is declared as `String` — or assigned when it
+exists — following the `is` rules in §11.1. `repeat <expr> times:` is
+`for <hidden> in range(<expr>):`; the loop variable is
+compiler-generated and cannot collide with user code.
+
+Each form requires its full pattern. `say(x)` remains a call,
+`repeat 3:` is a parse error (the `times`/`time` word is required),
+and `ask "prompt"` without `giving <name>` is a parse error.
+
+### 11.3 `otherwise`
+
+```
+if <cond>:
+    ...
+otherwise if <cond>:
+    ...
+otherwise:
+    ...
+```
+
+`otherwise if` is `elif`; `otherwise` is `else`. They may be mixed
+freely with `elif`/`else`. `otherwise` is only special directly after
+an if/elif block; anywhere else it is an ordinary identifier.
+
+### 11.4 `increase` / `decrease`
+
+```
+increase <name> [by <expr>]
+decrease <name> [by <expr>]
+```
+
+`<name> = <name> + (<expr>)` and `<name> = <name> - (<expr>)`; the
+amount defaults to `1`. The name must already exist (semantic error
+otherwise), as with `set`.
+
+### 11.5 English comparisons
+
+In expressions:
+
+```
+<expr> is <expr>                          ==  ==
+<expr> is not <expr>                      ==  !=
+<expr> is greater than <expr>             ==  >
+<expr> is less than <expr>                ==  <
+<expr> is greater than or equal to <expr> ==  >=
+<expr> is less than or equal to <expr>    ==  <=
+```
+
+Precedence is unchanged: `is` / `is not` bind at equality level,
+`is greater|less than ...` at comparison level.
+
+### 11.6 `to` functions
+
+```
+to <name>:
+to <name> with <a>, <b> as <Type>:
+to <name> with <a> as <Type> and returns <Type>:
+```
+
+Alias for `define function` (§4.1), allowed at top level and in class
+bodies. Parameters are comma-separated `<name> [as <Type>]`; an
+omitted type is dynamically typed. `to` inside a function body is a
+parse error, like `define`.
+
+### 11.7 Example
+
+Before (statements from §4):
+
+```agk
+define function main:
+    create i as Integer
+    set i to 0
+    while i < 3:
+        print("hi")
+        set i to i + 1
+```
+
+After (Simple AGK, §11):
+
+```agk
+to main:
+    repeat 3 times:
+        say "hi"
+```
+
+Both print:
+
+```text
+hi
+hi
+hi
+```
