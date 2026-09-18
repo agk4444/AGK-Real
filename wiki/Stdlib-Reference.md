@@ -4,21 +4,21 @@ Twelve `.agk` modules ship with the compiler (in `agk/stdlib/`). Import one by n
 
 **Modules**
 
-- [[Stdlib-Reference#strutils|strutils]]
-- [[Stdlib-Reference#listutils|listutils]]
-- [[Stdlib-Reference#fileutils|fileutils]]
-- [[Stdlib-Reference#jsonutils|jsonutils]]
-- [[Stdlib-Reference#httputils|httputils]]
-- [[Stdlib-Reference#dateutils|dateutils]]
-- [[Stdlib-Reference#csvutils|csvutils]]
-- [[Stdlib-Reference#regexutils|regexutils]]
-- [[Stdlib-Reference#sqliteutils|sqliteutils]]
-- [[Stdlib-Reference#crypto|crypto]]
-- [[Stdlib-Reference#graphics|graphics]]
-- [[Stdlib-Reference#agent|agent]]
-- [[Stdlib-Reference#writing-your-own-module|Writing your own module]]
+- [[strutils|Stdlib-Reference#strutils]]
+- [[listutils|Stdlib-Reference#listutils]]
+- [[fileutils|Stdlib-Reference#fileutils]]
+- [[jsonutils|Stdlib-Reference#jsonutils]]
+- [[httputils|Stdlib-Reference#httputils]]
+- [[dateutils|Stdlib-Reference#dateutils]]
+- [[csvutils|Stdlib-Reference#csvutils]]
+- [[regexutils|Stdlib-Reference#regexutils]]
+- [[sqliteutils|Stdlib-Reference#sqliteutils]]
+- [[crypto|Stdlib-Reference#crypto]]
+- [[graphics|Stdlib-Reference#graphics]]
+- [[agent|Stdlib-Reference#agent]]
+- [[Writing your own module|Stdlib-Reference#writing-your-own-module]]
 
-Bigger end-to-end programs live on the [[Library-Cookbook|Library cookbook]] page: a password-hashing CLI, a generative-art PNG, and a tool-using agent with a mocked LLM.
+Bigger end-to-end programs live on the [[Library cookbook|Library-Cookbook]] page: a password-hashing CLI, a generative-art PNG, and a tool-using agent with a mocked LLM.
 
 ## strutils
 
@@ -336,7 +336,7 @@ define function main:
     print(base64_decode("!!! not base64 !!!"))
 ```
 
-A full password-hashing CLI built on `crypto` is on the [[Library-Cookbook|Library cookbook]] page.
+A full password-hashing CLI built on `crypto` is on the [[Library cookbook|Library-Cookbook]] page.
 
 ## graphics
 
@@ -386,7 +386,7 @@ define function main:
     set c to new(8, 8, "nope")
 ```
 
-A generative-art program that paints a whole canvas pixel by pixel is on the [[Library-Cookbook|Library cookbook]] page.
+A generative-art program that paints a whole canvas pixel by pixel is on the [[Library cookbook|Library-Cookbook]] page.
 
 ## agent
 

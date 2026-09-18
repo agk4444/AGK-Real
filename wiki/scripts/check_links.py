@@ -1,10 +1,11 @@
 #!/usr/bin/env python3
 """Check that every internal link in the wiki resolves.
 
-- For each .md page, extracts [[Page Name]] / [[Page Name|label]] /
-  [[Page#section]] / [[Page#section|label]] links (code spans and fenced
-  code blocks are stripped first so `[[Page Name]]` inside backticks is
-  not treated as a link).
+- For each .md page, extracts [[Page Name]] / [[label|Page Name]] /
+  [[label|Page#section]] links (code spans and fenced code blocks are
+  stripped first so `[[Page Name]]` inside backticks is not treated as
+  a link). GitHub wiki syntax puts the label first: the target is the
+  part after the last pipe.
 - Page names resolve GitHub-style: spaces, hyphens, and underscores are
   equivalent ("Language-Reference" == "Language Reference").
 - #section anchors must match a heading in the target page, slugged the
@@ -27,7 +28,7 @@ from urllib.parse import urlparse
 WIKI = os.path.abspath(sys.argv[1] if len(sys.argv) > 1 else
                        os.path.join(os.path.dirname(__file__), ".."))
 
-WIKILINK_RE = re.compile(r"\[\[([^\]|]+?)(?:\|[^\]]+)?\]\]")
+WIKILINK_RE = re.compile(r"\[\[([^\]]+?)\]\]")
 MDLINK_RE = re.compile(r"\[[^\]]*\]\(([^)]+)\)")
 FENCE_RE = re.compile(r"```.*?```", re.DOTALL)
 COMMENT_RE = re.compile(r"<!--.*?-->", re.DOTALL)
@@ -58,7 +59,12 @@ def github_slug(heading):
 
 def page_headings(path):
     with open(path, encoding="utf-8") as f:
-        text = strip_markup(f.read())
+        text = f.read()
+    # Strip fenced blocks and comments, but keep code-span *text*:
+    # GitHub slugs the rendered heading ("## `agk run`" -> #agk-run).
+    text = FENCE_RE.sub("", text)
+    text = COMMENT_RE.sub("", text)
+    text = text.replace("`", "")
     return {github_slug(m.group(2)) for m in HEADING_RE.finditer(text)}
 
 
@@ -76,7 +82,10 @@ def main():
         text = strip_markup(raw)
         for raw_link in WIKILINK_RE.findall(text):
             checked += 1
-            target, _, anchor = raw_link.partition("#")
+            # GitHub wiki syntax is [[label|page]] (label optional):
+            # the target is always the part after the last pipe.
+            target = raw_link.rpartition("|")[2]
+            target, _, anchor = target.partition("#")
             key = normalize_page(target)
             if key not in pages:
                 errors.append(f"{fname}: broken wiki link [[{raw_link}]] "

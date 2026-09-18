@@ -1,9 +1,9 @@
-**AGK-Real** v0.5.0
+**AGK-Real** v0.6.0
 
 - [[Home]]
 - [[Tutorial]]
-- [[Language-Reference|Language reference]]
-- [[Stdlib-Reference|Standard library]]
-- [[Library-Cookbook|Library cookbook]]
-- [[CLI-Reference|CLI reference]]
+- [[Language reference|Language-Reference]]
+- [[Standard library|Stdlib-Reference]]
+- [[Library cookbook|Library-Cookbook]]
+- [[CLI reference|CLI-Reference]]
 - [[Changelog]]

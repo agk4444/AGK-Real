@@ -4,17 +4,18 @@ This is a guided walkthrough. Each example is a complete program you can save to
 
 **Contents**
 
-- [[Tutorial#1-hello|1. Hello]]
-- [[Tutorial#2-variables|2. Variables]]
-- [[Tutorial#3-functions|3. Functions]]
-- [[Tutorial#4-branching|4. Branching]]
-- [[Tutorial#5-loops|5. Loops]]
-- [[Tutorial#6-string-interpolation|6. String interpolation]]
-- [[Tutorial#7-classes|7. Classes]]
-- [[Tutorial#8-errors-that-help|8. Errors that help]]
-- [[Tutorial#9-the-standard-library|9. The standard library]]
-- [[Tutorial#10-recursion|10. Recursion]]
-- [[Tutorial#next-steps|Next steps]]
+- [[1. Hello|Tutorial#1-hello]]
+- [[2. Simple AGK: the plain-English way|Tutorial#2-simple-agk-the-plain-english-way]]
+- [[3. Variables|Tutorial#3-variables]]
+- [[4. Functions|Tutorial#4-functions]]
+- [[5. Branching|Tutorial#5-branching]]
+- [[6. Loops|Tutorial#6-loops]]
+- [[7. String interpolation|Tutorial#7-string-interpolation]]
+- [[8. Classes|Tutorial#8-classes]]
+- [[9. Errors that help|Tutorial#9-errors-that-help]]
+- [[10. The standard library|Tutorial#10-the-standard-library]]
+- [[11. Recursion|Tutorial#11-recursion]]
+- [[Next steps|Tutorial#next-steps]]
 
 ## 1. Hello
 
@@ -26,9 +27,83 @@ define function main:
     print("hello, agk")
 ```
 
-## 2. Variables
+## 2. Simple AGK: the plain-English way
 
-Declare with `create`, assign with `set`. Types (`Integer`, `String`, …) are documented intent — the compiler records them but does not type-check.
+Everything in this tutorial has a shorter spelling. Simple AGK is an
+alias layer for beginners — each form below means exactly the same as
+the longer form, and you can mix both styles freely.
+
+<!-- verify: id=tutorial-simple output="hi\nhi\nhi\n" -->
+```agk
+to main:
+    repeat 3 times:
+        say "hi"
+```
+
+That is the whole program. Here is the same program in the long form
+from §1:
+
+<!-- verify: id=tutorial-simple-long output="hi\nhi\nhi\n" -->
+```agk
+define function main:
+    create i as Integer
+    set i to 0
+    while i < 3:
+        print("hi")
+        set i to i + 1
+```
+
+Both print the same thing. The pieces:
+
+- `to main:` instead of `define function main:`. With parameters:
+  `to greet with name:` — add `as String` after a parameter when you
+  want a type, and `and returns String` at the end for a return type.
+- `name is value` instead of `create` + `set`: the first `is` declares
+  the variable (the compiler infers the type), later ones just assign.
+- `say` instead of `print`.
+- `repeat 3 times:` instead of a `while` counter loop.
+- `otherwise:` instead of `else`, `otherwise if` instead of `elif`.
+- `increase score` / `decrease lives by 1` instead of
+  `set score to score + 1`.
+- Comparisons read as English: `is`, `is not`,
+  `is greater than`, `is less than`, `is greater than or equal to`,
+  `is less than or equal to`.
+
+<!-- verify: id=tutorial-simple-guess output="too small\n" -->
+```agk
+to main:
+    secret is 7
+    guess is 5
+    if guess is less than secret:
+        say "too small"
+    otherwise if guess is greater than secret:
+        say "too big"
+    otherwise:
+        say "just right"
+```
+
+<!-- verify: id=tutorial-simple-score output="score is 5\n" -->
+```agk
+to main:
+    score is 0
+    repeat 3 times:
+        increase score by 2
+    decrease score
+    say "score is {score}"
+```
+
+Almost nothing here is a reserved word: `say`, `repeat`, `increase`,
+`otherwise` and friends still work as ordinary variable names, and
+`say("hi")` still calls a function named `say`. (Only `to` was already
+reserved.) When you outgrow the short forms, the long forms are always
+there — both compile to the same code.
+
+## 3. Variables
+
+Declare with `create`, assign with `set`. (In a hurry? `name is value`
+from §2 declares and assigns in one step.) Declared types are
+statically checked: assigning a value of the wrong type is a compile
+error.
 
 <!-- verify: id=tutorial-vars output="agk\n42\n" -->
 ```agk
@@ -42,7 +117,7 @@ define function main:
     print(n)
 ```
 
-## 3. Functions
+## 4. Functions
 
 The `that takes …` and `and returns …` clauses are optional documentation. Calling with the wrong number of arguments is a compile error.
 
@@ -68,7 +143,7 @@ define function main:
     greet("Gopi", "?")
 ```
 
-## 4. Branching
+## 5. Branching
 
 <!-- verify: id=tutorial-branching output="B\n" -->
 ```agk
@@ -83,7 +158,7 @@ define function main:
         print("keep practicing")
 ```
 
-## 5. Loops
+## 6. Loops
 
 `while` works as you'd expect. The range form of `for` is **inclusive** of the end value, and counts down when the step is negative:
 
@@ -109,7 +184,7 @@ define function main:
 
 The `each` in `for each x in …` is optional.
 
-## 6. String interpolation
+## 7. String interpolation
 
 Any `{expression}` inside a string is evaluated and spliced in. Double the braces (`{{`, `}}`) for a literal brace; a lone `{` or `}` is a compile error.
 
@@ -123,7 +198,7 @@ define function main:
     print("{{braces stay literal}}")
 ```
 
-## 7. Classes
+## 8. Classes
 
 Fields are declared with `variable`. Inside methods, just name the field — the compiler rewrites it to `self.<field>` for you. `extends` gives single inheritance.
 
@@ -164,7 +239,7 @@ define function main:
     print(d.speak())
 ```
 
-## 8. Errors that help
+## 9. Errors that help
 
 A `set` without a `create` is a compile error — this catches typos instead of crashing at runtime. Misspell a name and the compiler suggests the closest known one:
 
@@ -181,7 +256,7 @@ Errors always name the file, line, and column — never a traceback:
 hello.agk:2:9: semantic error: cannot set undefined variable 'naem'. did you mean 'name'?
 ```
 
-## 9. The standard library
+## 10. The standard library
 
 Twelve modules ship with the compiler. `import` one by name and its functions are inlined into your program — call them directly.
 
@@ -195,9 +270,9 @@ define function main:
     print(repeat_string("a", 2))
 ```
 
-See the [[Stdlib-Reference|standard library reference]] for all twelve modules.
+See the [[standard library reference|Stdlib-Reference]] for all twelve modules.
 
-## 10. Recursion
+## 11. Recursion
 
 <!-- verify: id=tutorial-recursion output="55\n" -->
 ```agk
@@ -213,6 +288,6 @@ define function main:
 
 ## Next steps
 
-- [[Language-Reference|Language reference]] — the full syntax contract, including exceptions, imports, and operator precedence.
-- [[CLI-Reference|CLI reference]] — `agk run/build/check/test/fmt/repl` and the LSP server.
+- [[Language reference|Language-Reference]] — the full syntax contract, including exceptions, imports, and operator precedence.
+- [[CLI reference|CLI-Reference]] — `agk run/build/check/test/fmt/repl` and the LSP server.
 - Try `agk repl` for an interactive session, or `agk fmt --check` to see if a file matches canonical style.

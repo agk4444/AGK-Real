@@ -4,14 +4,14 @@ The `agk` command (installed by `pip install .`). Without installing, prefix eve
 
 **Contents**
 
-- [[CLI-Reference#agk-run-fileagk|`agk run`]]
-- [[CLI-Reference#agk-build-fileagk--o-outpy|`agk build`]]
-- [[CLI-Reference#agk-check-fileagk|`agk check`]]
-- [[CLI-Reference#agk-test-path|`agk test`]]
-- [[CLI-Reference#agk-fmt---check-fileagk|`agk fmt`]]
-- [[CLI-Reference#agk-repl-or-bare-agk|`agk repl`]]
-- [[CLI-Reference#lsp-server|LSP server]]
-- [[CLI-Reference#exit-codes|Exit codes]]
+- [[`agk run`|CLI-Reference#agk-run-fileagk]]
+- [[`agk build`|CLI-Reference#agk-build-fileagk--o-outpy]]
+- [[`agk check`|CLI-Reference#agk-check-fileagk]]
+- [[`agk test`|CLI-Reference#agk-test-path]]
+- [[`agk fmt`|CLI-Reference#agk-fmt---check-fileagk]]
+- [[`agk repl`|CLI-Reference#agk-repl-or-bare-agk]]
+- [[LSP server|CLI-Reference#lsp-server]]
+- [[Exit codes|CLI-Reference#exit-codes]]
 
 ## `agk run <file.agk>`
 

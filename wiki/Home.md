@@ -9,7 +9,7 @@ define function main:
 ```
 
 > [!NOTE]
-> Every AGK example in this wiki is a complete, runnable program. A verification script compiles and runs each one through the real compiler before it ships — see the [[CLI-Reference|CLI reference]] for the tools, or run `scripts/verify_examples.py` in this wiki yourself.
+> Every AGK example in this wiki is a complete, runnable program. A verification script compiles and runs each one through the real compiler before it ships — see the [[CLI reference|CLI-Reference]] for the tools, or run `scripts/verify_examples.py` in this wiki yourself.
 
 ## Get started
 
@@ -26,11 +26,11 @@ $ agk repl                 # interactive session
 ## Explore
 
 - **[[Tutorial]]** — a guided walkthrough: your first program, variables, functions, loops, classes, errors, and the standard library.
-- **[[Language-Reference|Language reference]]** — the full syntax contract — variables, functions, classes, control flow, exceptions, interpolation, imports — plus what's new in 0.5.0.
-- **[[Stdlib-Reference|Standard library]]** — twelve bundled modules: strings, lists, files, JSON, HTTP, dates, CSV, regex, SQLite, crypto, graphics, and LLM agents. Import by name, call directly.
-- **[[Library-Cookbook|Library cookbook]]** — complete programs: a password-hashing CLI, generative art as PNG, and a tool-using agent.
-- **[[CLI-Reference|CLI reference]]** — every `agk` subcommand with flags and exit codes: run, build, check, test, fmt, repl — plus the LSP server.
-- **[[Changelog]]** — what changed in each release, from v0.1.0 to the current v0.5.0.
+- **[[Language reference|Language-Reference]]** — the full syntax contract — variables, functions, classes, control flow, exceptions, interpolation, imports — plus what's new in 0.6.0.
+- **[[Standard library|Stdlib-Reference]]** — twelve bundled modules: strings, lists, files, JSON, HTTP, dates, CSV, regex, SQLite, crypto, graphics, and LLM agents. Import by name, call directly.
+- **[[Library cookbook|Library-Cookbook]]** — complete programs: a password-hashing CLI, generative art as PNG, and a tool-using agent.
+- **[[CLI reference|CLI-Reference]]** — every `agk` subcommand with flags and exit codes: run, build, check, test, fmt, repl — plus the LSP server.
+- **[[Changelog]]** — what changed in each release, from v0.1.0 to the current v0.6.0.
 
 ## Design rules
 
@@ -45,4 +45,4 @@ $ agk repl                 # interactive session
 
 ---
 
-*AGK-Real v0.5.0 wiki.*
+*AGK-Real v0.6.0 wiki.*

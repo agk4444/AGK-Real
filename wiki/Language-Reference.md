@@ -1,28 +1,28 @@
 # Language reference
 
-The full syntax contract for AGK-Real v0.5.0, derived from `SPEC.md` (the v2 spec). Anything not in this reference is a compile error, not a silent miscompile. Every runnable example below is compile-and-run verified.
+The full syntax contract for AGK-Real v0.6.0, derived from `SPEC.md` (the v2 spec). Anything not in this reference is a compile error, not a silent miscompile. Every runnable example below is compile-and-run verified.
 
 **Contents**
 
-- [[Language-Reference#program-structure|Program structure]]
-- [[Language-Reference#lexical-rules|Lexical rules]]
-- [[Language-Reference#keywords|Keywords]]
-- [[Language-Reference#functions|Functions]]
-- [[Language-Reference#variables|Variables]]
-- [[Language-Reference#constants|Constants]]
-- [[Language-Reference#conditionals|Conditionals]]
-- [[Language-Reference#loops|Loops]]
-- [[Language-Reference#return|Return]]
-- [[Language-Reference#classes|Classes]]
-- [[Language-Reference#imports|Imports]]
-- [[Language-Reference#expression-statements|Expression statements]]
-- [[Language-Reference#exceptions|Exceptions]]
-- [[Language-Reference#expressions--precedence|Expressions & precedence]]
-- [[Language-Reference#name-resolution|Name resolution]]
-- [[Language-Reference#code-generation|Code generation]]
-- [[Language-Reference#error-format|Error format]]
-- [[Language-Reference#new-in-040|New in 0.4.0]]
-- [[Language-Reference#explicitly-out-of-scope|Explicitly out of scope]]
+- [[Program structure|Language-Reference#program-structure]]
+- [[Lexical rules|Language-Reference#lexical-rules]]
+- [[Keywords|Language-Reference#keywords]]
+- [[Functions|Language-Reference#functions]]
+- [[Variables|Language-Reference#variables]]
+- [[Constants|Language-Reference#constants]]
+- [[Conditionals|Language-Reference#conditionals]]
+- [[Loops|Language-Reference#loops]]
+- [[Return|Language-Reference#return]]
+- [[Classes|Language-Reference#classes]]
+- [[Imports|Language-Reference#imports]]
+- [[Expression statements|Language-Reference#expression-statements]]
+- [[Exceptions|Language-Reference#exceptions]]
+- [[Expressions & precedence|Language-Reference#expressions--precedence]]
+- [[Name resolution|Language-Reference#name-resolution]]
+- [[Code generation|Language-Reference#code-generation]]
+- [[Error format|Language-Reference#error-format]]
+- [[New in 0.4.0|Language-Reference#new-in-040]]
+- [[Explicitly out of scope|Language-Reference#explicitly-out-of-scope]]
 
 ## Program structure
 
@@ -552,6 +552,85 @@ Declared annotations are now checked: the compiler rejects provable type misuses
 define function add that takes a as Integer, b as Integer and returns Integer:
     return a + b
 ```
+
+## New in 0.6.0
+
+> Simple AGK: a beginner-friendly alias layer. Every form desugars at parse time to the construct on its right — name resolution and code generation are unchanged, and no new reserved words are added (`to` was already reserved).
+
+### Inferred declaration
+
+<!-- verify: id=ref-simple-is output="6\n" -->
+```agk
+to main:
+    x is 5
+    x is x + 1
+    say x
+```
+
+`x is <expr>` declares `x` with an inferred type when it is new
+(literals infer `Integer` / `Float` / `String` / `Boolean` / `List` /
+`Dict`; anything else is dynamically typed), and assigns when it
+already exists — never a redeclare error. Reassigning a value of the
+wrong type is still a compile error, exactly as with `set`.
+
+### Functions, output, input, loops
+
+<!-- verify: id=ref-simple-forms output="hello\nhi\nhi\n" -->
+```agk
+to greet with name:
+    say "hello"
+
+to main:
+    greet("gopi")
+    repeat 2 times:
+        say "hi"
+```
+
+`to <name> [with <params>] [and returns <Type>]:` is `define
+function`, allowed at top level and in class bodies. `say <expr>` is
+`print(<expr>)`. `ask <expr> giving <name>` reads a line via
+`input(<expr>)` into `<name>`, declared `String` (or assigned when it
+exists). `repeat <expr> times:` loops over `range(<expr>)` with a
+compiler-generated variable that cannot collide with user code.
+
+### Branching and counting
+
+<!-- verify: id=ref-simple-branch output="big\n4\n" -->
+```agk
+to main:
+    n is 10
+    if n is greater than 100:
+        say "huge"
+    otherwise if n is greater than 5:
+        say "big"
+    otherwise:
+        say "small"
+    decrease n by 6
+    say n
+```
+
+`otherwise:` is `else` and `otherwise if` is `elif`, freely mixable
+with `elif` / `else`. `increase <name> [by <expr>]` and
+`decrease <name> [by <expr>]` add or subtract (defaulting to 1); the
+name must already exist, as with `set`.
+
+### English comparisons
+
+In expressions, `is` is `==`, `is not` is `!=`, and
+`is greater|less than [or equal to]` are `>` / `<` / `>=` / `<=`, at
+the usual precedence levels:
+
+<!-- verify: id=ref-simple-cmp output="True\nTrue\nTrue\n" -->
+```agk
+to main:
+    say 3 is greater than 2
+    say 3 is less than or equal to 3
+    say 3 is not 4
+```
+
+At statement start, `x is <expr>` declares or assigns — except when the
+tail reads as a comparison (`x is not 5`, `x is greater than 5`),
+which is an expression statement.
 
 ## Explicitly out of scope
 

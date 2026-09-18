@@ -2,9 +2,9 @@
 
 Three complete programs built on the standard library. Each one is a full, runnable AGK program — copy it into a `.agk` file and run it with `agk run`. Every program on this page is compile-and-run verified.
 
-- [[Library-Cookbook#password-hasher|Password hasher]] — a CLI that salts and hashes a password with `crypto`
-- [[Library-Cookbook#generative-art|Generative art]] — a pixel-by-pixel painting saved as PNG with `graphics`
-- [[Library-Cookbook#tool-using-assistant|Tool-using assistant]] — a ReAct agent that calls a real tool, with the LLM mocked
+- [[Password hasher|Library-Cookbook#password-hasher]] — a CLI that salts and hashes a password with `crypto`
+- [[Generative art|Library-Cookbook#generative-art]] — a pixel-by-pixel painting saved as PNG with `graphics`
+- [[Tool-using assistant|Library-Cookbook#tool-using-assistant]] — a ReAct agent that calls a real tool, with the LLM mocked
 
 ## Password hasher
 
