@@ -4,6 +4,19 @@ An English-like programming language that compiles to real, runnable Python.
 Rebuilt from scratch after the AGKOS/AGKCompiler repos turned out to never
 have compiled their own examples (0/40 `.agk` files parsed).
 
+```agk
+to main:
+    say "hello, agk"
+```
+
+You write `to`, `say`, `name is`, `repeat` — plain English — and the
+compiler turns it into readable Python 3 with no runtime dependency.
+(The classic `define function` / `create` / `set` / `print` forms still
+work too.)
+
+**Docs:** the [GitHub wiki](https://github.com/agk4444/AGK-Real/wiki)
+(tutorial, language reference, standard library, cookbook, CLI reference,
+changelog) — every example in it is compile-and-run verified.
 **User guide:** [`GUIDE.md`](GUIDE.md) — every program in it is
 compile-tested by the suite.
 
@@ -19,72 +32,62 @@ agk repl                             # interactive session
 
 (Or without installing: `.venv/bin/python -m agk run hello.agk`.)
 
-```agk
-define function main:
-    print("hello, agk")
-```
-
 ## Status
 
-- **M1 DONE** — frozen spec (`SPEC.md`), lexer with real INDENT/DEDENT
-  handling, 39/39 lexer tests green.
-- **M2 DONE** — recursive-descent parser + AST, 60/60 parser tests green.
-  99 tests total.
-- **M3 DONE** — semantic analyzer: scope checking, undefined-variable
-  errors with line numbers, arity checks, duplicate detection,
-  unused/never-assigned/unreachable warnings, automatic
-  `self.<field>` rewriting. 32/32 semantic tests green. 131 total.
-- **M4 DONE** — Python codegen: precedence-aware expression emission,
-  classes/constructors/methods, `main()` entrypoint. 29/29 golden tests
-  green (every output validated by `ast.parse`). 160 total.
-- **M5 DONE** — pipeline API, 15 runnable corpus programs with exact-stdout
-  E2E tests, 500-case mutation fuzz with zero raw tracebacks. 683 total.
-- **M6 DONE** — CLI (`run`/`build`/`check`/`repl`), interactive REPL with
-  persistent definitions, `.agk` module imports, bundled stdlib
-  (`strutils`, `listutils`), `GUIDE.md` with compile-tested examples.
-  **725 tests total, all green.**
-- **V2 DONE** — exceptions (`try`/`catch`/`finally`, `raise`),
-  string interpolation (`"Hello, {name}!"`), richer `for` loops
-  (`for x in ...`, `for i from 1 to 10 [step n]`), default parameter
-  values, new stdlib modules (`fileutils`, `jsonutils`, `httputils`,
-  `dateutils`), pip-installable package (`pip install .` → `agk`
-  command), VS Code syntax grammar (`editors/vscode/`), AGK-source
-  traceback mapping in `agk run`, and a browser playground
-  (Pyodide, compile + run in-page). **789 tests total, all green.**
+**v0.6.0** — Simple AGK: `name is ...` declaration with type inference,
+`to ... with ...:` functions, `say` / `ask ... giving ...`, `repeat N
+times:`, English comparisons (`is greater than`), `otherwise:`,
+`increase` / `decrease ... by`. **1259 tests, all green.**
+
+Also in: static type checker, optimizer (constant folding, dead-code and
+dead-store elimination), debugger (`agk debug`), test runner
+(`agk test`), formatter (`agk fmt`), package manager (`agk pkg`),
+LSP server, `.agk` module imports, exceptions, string interpolation,
+async/await, generators, decorators, FFI (`extern`), and twelve bundled
+stdlib modules: `strutils`, `listutils`, `fileutils`, `jsonutils`,
+`httputils`, `dateutils`, `csvutils`, `regexutils`, `sqliteutils`,
+`crypto`, `graphics`, `agent`.
+
+See the [changelog](https://github.com/agk4444/AGK-Real/wiki/Changelog)
+for the full release history.
 
 ## Tooling
 
 - `pip install .` — installs the `agk` console script (package
-  `agk-real` 0.2.0, Python 3.9+). Stdlib `.agk` modules ship as package
+  `agk-real` 0.6.0, Python 3.9+). Stdlib `.agk` modules ship as package
   data.
+- `agk run|build|check|repl|debug|test|fmt|clean` and `agk pkg
+  init|install|list` — see `agk --help` or the
+  [CLI reference](https://github.com/agk4444/AGK-Real/wiki/CLI-Reference).
 - `editors/vscode/` — TextMate grammar + language configuration for
-  `.agk` files. Copy into `~/.vscode/extensions/agk-0.2.0/`.
+  `.agk` files.
 - `playground/` — `build.py` embeds the compiler into a single HTML
   page; runs AGK in the browser via Pyodide (no server).
 
 ## Layout
 
 ```
-SPEC.md            v2 language spec (the contract)
+SPEC.md            v2 language spec + frozen amendments (the contract)
 GUIDE.md           user guide (every example compile-tested)
+wiki/              GitHub wiki source (every example compile-and-run verified)
 agk/               compiler package
-  tokens.py        token types
   lexer.py         lexer (INDENT/DEDENT via indent stack)
-  parser.py        recursive-descent parser + AST builders
+  parser.py        recursive-descent parser + AST builders (+ Simple AGK desugaring)
   ast_nodes.py     AST dataclasses
-  semantic.py      scope/arity/duplicate checking, self-rewriting
+  semantic.py      scope/arity/duplicate checking, type inference, self-rewriting
   codegen.py       precedence-aware Python emitter
   pipeline.py      compile_source / run_source, .agk module resolution,
                    AGK-source traceback mapping
   repl.py          interactive REPL
-  __main__.py      CLI: run / build / check / repl
-  stdlib/          bundled .agk modules (strutils, listutils, fileutils,
-                   jsonutils, httputils, dateutils)
+  __main__.py      CLI: run / build / check / repl / debug / test / fmt / clean / pkg
+  stdlib/          12 bundled .agk modules (strutils, listutils, fileutils,
+                   jsonutils, httputils, dateutils, csvutils, regexutils,
+                   sqliteutils, crypto, graphics, agent)
   errors.py        file:line:col errors, no tracebacks
 editors/vscode/    VS Code syntax highlighting for .agk
 playground/        browser playground (Pyodide) sources + build script
 tests/
-  corpus/          15 runnable .agk programs + expected stdout
+  corpus/          21 runnable .agk programs + expected stdout
 ```
 
 ## Run tests
