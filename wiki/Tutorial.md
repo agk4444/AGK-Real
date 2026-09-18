@@ -183,7 +183,7 @@ hello.agk:2:9: semantic error: cannot set undefined variable 'naem'. did you mea
 
 ## 9. The standard library
 
-Nine modules ship with the compiler. `import` one by name and its functions are inlined into your program — call them directly.
+Twelve modules ship with the compiler. `import` one by name and its functions are inlined into your program — call them directly.
 
 <!-- verify: id=tutorial-stdlib output="HELLO!\naa\n" -->
 ```agk
