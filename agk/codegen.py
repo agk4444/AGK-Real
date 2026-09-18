@@ -24,6 +24,15 @@ def _quote(s):
                    .replace("\n", "\\n").replace("\t", "\\t")) + '"'
 
 
+def _is_format_call(node):
+    """True for `"…".format(…)` — which is how interpolated string
+    literals desugar, so the result is statically known to be a str."""
+    return (isinstance(node, A.Call)
+            and isinstance(node.func, A.Attribute)
+            and node.func.attr == "format"
+            and isinstance(node.func.obj, A.StringLit))
+
+
 class CodeGenerator:
     def __init__(self, agk_file=None):
         self.lines = []
@@ -163,10 +172,11 @@ class CodeGenerator:
         elif isinstance(s, A.RaiseStmt):
             if s.value is None:
                 self.emit("raise", s)
-            elif isinstance(s.value, A.StringLit):
+            elif isinstance(s.value, A.StringLit) or _is_format_call(s.value):
                 # v2: `raise "message"` raises Exception("message") so a
                 # plain string message just works (Python forbids raising
-                # a bare str).
+                # a bare str). Interpolated strings desugar to
+                # "…".format(…) — still a str, so they get the same wrap.
                 self.emit(f"raise Exception({self.expr(s.value)})", s)
             else:
                 self.emit(f"raise {self.expr(s.value)}", s)

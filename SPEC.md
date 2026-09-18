@@ -210,6 +210,12 @@ List literal: `[1, 2, 3]`. Dict literal: `{"a": 1}`.
 - A parameter without a default may not follow one with a default.
 - `return` outside a function → error.
 - Unused variable, unreachable code after `return` → warnings (non-fatal).
+- Undefined names get a "did you mean?" suggestion when a close candidate
+  exists (searched among variables in scope, declared functions, classes,
+  and builtins): the message is `<base message>. did you mean '<name>'?`.
+  With no close candidate the base message is unchanged. Applies to
+  undefined variables, `set` on undeclared names, undefined function
+  calls, and undefined base classes.
 
 ## 7. Code generation (Python 3.9+)
 
@@ -242,7 +248,9 @@ source, never at generated Python internals.
 
 Compile errors print as `file.agk:line:column: <phase>: <message>` on
 stderr and exit non-zero. No Python tracebacks ever reach the user at
-compile time. Runtime errors under `agk run` are rendered as AGK-source
+compile time. Where applicable, the message carries a suggestion
+(`... did you mean '<name>'?`, see §6); otherwise the message is shown
+as-is. Runtime errors under `agk run` are rendered as AGK-source
 tracebacks (`file.agk:line` frames) followed by the exception message.
 
 ## 9. Standard library (v2)
@@ -257,6 +265,9 @@ Bundled `.agk` modules, importable by name with no install step:
 | `jsonutils` | `parse_json(text)`, `to_json(value)` |
 | `httputils` | `http_get(url)` → response body as String |
 | `dateutils` | `today()` → `"YYYY-MM-DD"`, `now()` → datetime string, `add_days(date, n)` |
+| `csvutils` | `csv_parse(text)` → List of rows (each a List of strings); `csv_to_text(rows)` → String (round-trip safe) |
+| `regexutils` | `regex_match(pattern, text)` → Boolean (true if pattern found anywhere), `regex_find_all(pattern, text)` → List of matches, `regex_replace(pattern, replacement, text)` → String, `regex_split(pattern, text)` → List |
+| `sqliteutils` | `db_execute(db_path, sql)` → `"ok"` (statement executed and committed); `db_query(db_path, sql)` → List of rows (each a List of values). Each call opens, commits writes, and closes the database. |
 
 ## 10. Explicitly out of v2
 

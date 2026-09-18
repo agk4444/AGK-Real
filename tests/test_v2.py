@@ -536,8 +536,14 @@ def test_cli_run_shows_agk_traceback(tmp_path):
 
 def test_package_metadata():
     import importlib.metadata as md
+    import re
     dist = md.distribution("agk-real")
-    assert dist.version == "0.2.0"
+    # read the expected version from pyproject.toml so version bumps
+    # don't break this test again (regex keeps it working on py3.9,
+    # where tomllib doesn't exist yet)
+    text = (ROOT / "pyproject.toml").read_text()
+    expected = re.search(r'^version\s*=\s*"([^"]+)"', text, re.M).group(1)
+    assert dist.version == expected
     assert dist.read_text("entry_points.txt") is not None
     eps = md.entry_points(group="console_scripts")
     assert any(ep.name == "agk" for ep in eps)
@@ -563,3 +569,56 @@ def test_vscode_grammar_files_valid():
     assert any("try" in p.get("match", "") for p in grammar["repository"]["keyword"].get("patterns", [])
                ) or "try" in grammar["repository"]["keyword"]["match"]
     json.loads((base / "language-configuration.json").read_text())
+
+
+# -- regression: cross-module references + interpolated raise (found via AGKOS) --------------
+
+def test_codegen_raise_interpolated_string():
+    out = gen('define function f:\n'
+              '    create x as Integer\n'
+              '    set x to 1\n'
+              '    raise "boom {x}"\n')
+    assert 'raise Exception("boom {}".format(x))' in out
+
+
+def test_raise_interpolated_string_is_catchable():
+    src = ('define function main:\n'
+           '    create code as Integer\n'
+           '    set code to 42\n'
+           '    try:\n'
+           '        raise "boom {code}"\n'
+           '    catch e:\n'
+           '        print("caught: {e}")\n')
+    out, _, _ = run_source(src, filename="test.agk")
+    assert out == "caught: boom 42\n"
+
+
+def test_cross_module_class_reference(tmp_path):
+    (tmp_path / "lib.agk").write_text(
+        "define class Widget:\n"
+        "    variable n as Integer\n"
+        "    define constructor that takes v as Integer:\n"
+        "        set n to v\n"
+        "    define function label:\n"
+        "        return \"widget-{n}\"\n")
+    main = tmp_path / "main.agk"
+    main.write_text("import lib\n"
+                    "define function main:\n"
+                    "    create w as Object\n"
+                    "    set w to Widget(7)\n"
+                    "    print(w.label())\n")
+    out, _, warnings = run_source(main.read_text(), filename=str(main))
+    assert out == "widget-7\n"
+    assert warnings == []
+
+
+def test_cross_module_function_arity_checked(tmp_path):
+    (tmp_path / "lib.agk").write_text(
+        "define function add that takes a as Integer, b as Integer:\n"
+        "    return a + b\n")
+    main = tmp_path / "main.agk"
+    main.write_text("import lib\n"
+                    "define function main:\n"
+                    "    print(add(1, 2, 3))\n")
+    with pytest.raises(SemanticError):
+        run_source(main.read_text(), filename=str(main))

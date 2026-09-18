@@ -3,18 +3,28 @@
     python -m agk run <file.agk>        compile and run
     python -m agk build <file.agk> [-o out.py]   compile to Python
     python -m agk check <file.agk>       compile only; report errors/warnings
+    python -m agk test [path]             discover and run test_*.agk /
+                                         *_test.agk files (default: .)
+    python -m agk fmt [--check] <file.agk>   canonical formatting (rewrite in
+                                             place, or just check with --check)
     python -m agk repl                   interactive session
     python -m agk                        interactive session
 
 Exit codes: 0 ok, 1 compile error, 2 runtime or usage error.
+For fmt: 0 ok (or clean under --check), 1 would reformat / lex error,
+2 usage/IO error.
+For test: 0 all tests passed, 1 some test failed or a file could not
+be collected, 2 usage/IO error.
 """
 
 import os
 import sys
 
-from .errors import AGKError
+from .errors import AGKError, LexerError
+from .format import format_source
 from .pipeline import compile_source, format_agk_traceback
 from .repl import repl
+from .test_runner import run_tests
 
 USAGE = __doc__
 
@@ -80,6 +90,29 @@ def cmd_check(path):
     return 0
 
 
+def cmd_fmt(path, check=False):
+    src = _read(path)
+    try:
+        out = format_source(src, filename=path)
+    except LexerError as e:
+        print(f"agk: cannot format '{path}': {e}", file=sys.stderr)
+        return 1
+    if out == src:
+        if check:
+            print("ok")
+        return 0
+    if check:
+        print(f"would reformat {path}")
+        return 1
+    try:
+        with open(path, "w", encoding="utf-8") as f:
+            f.write(out)
+    except OSError as e:
+        print(f"agk: cannot write '{path}': {e.strerror}", file=sys.stderr)
+        raise SystemExit(2)
+    return 0
+
+
 def main(argv=None):
     if argv is None:
         argv = sys.argv[1:]
@@ -99,6 +132,15 @@ def main(argv=None):
         return cmd_build(rest[0], out)
     if cmd == "check" and len(rest) == 1:
         return cmd_check(rest[0])
+    if cmd == "test" and len(rest) <= 1:
+        return run_tests(rest[0] if rest else ".")
+    if cmd == "fmt":
+        check = bool(rest) and rest[0] == "--check"
+        args = rest[1:] if check else rest
+        if len(args) != 1:
+            print(USAGE, file=sys.stderr)
+            return 2
+        return cmd_fmt(args[0], check=check)
     print(USAGE, file=sys.stderr)
     return 2
 

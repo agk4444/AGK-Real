@@ -17,6 +17,8 @@ Raises SemanticError on the first error; collects warnings in .warnings.
 from . import ast_nodes as A
 from .errors import SemanticError
 
+import difflib
+
 BUILTINS = {
     "print": -1, "len": 1, "str": 1, "int": 1, "float": 1, "bool": 1,
     "range": -1, "input": -1, "list": -1, "dict": -1, "abs": 1,
@@ -62,6 +64,24 @@ class SemanticAnalyzer:
     def warn(self, message, node):
         self.warnings.append(
             f"{self.filename}:{node.line}:{node.col}: warning: {message}")
+
+    def _suggest(self, name):
+        """Return a ". did you mean '<match>'?" suffix for an undefined
+        name, or '' when nothing is close enough."""
+        candidates = set()
+        scope = self._scope
+        while scope is not None:
+            candidates.update(scope.vars)
+            scope = scope.parent
+        candidates.update(self.functions)
+        candidates.update(self.classes)
+        candidates.update(BUILTINS)
+        candidates.discard(name)
+        matches = difflib.get_close_matches(name, sorted(candidates),
+                                            n=1, cutoff=0.6)
+        if matches:
+            return f". did you mean '{matches[0]}'?"
+        return ""
 
     # -- entry --------------------------------------------------------------
 
@@ -189,7 +209,8 @@ class SemanticAnalyzer:
         if len(set(own_fields)) != len(own_fields):
             self.error(f"duplicate field in class '{cls.name}'", cls)
         if cls.base and cls.base not in self.classes:
-            self.error(f"undefined base class '{cls.base}'", cls)
+            self.error(f"undefined base class '{cls.base}'"
+                       f"{self._suggest(cls.base)}", cls)
         fields = self._all_fields(cls)
         method_names = [m.name for m in cls.methods]
         if len(set(method_names)) != len(method_names):
@@ -257,7 +278,8 @@ class SemanticAnalyzer:
                 return A.SetAttr(A.Name("self", line=s.line, col=s.col),
                                  s.name, s.value, line=s.line, col=s.col)
             else:
-                self.error(f"cannot set undefined variable '{s.name}'", s)
+                self.error(f"cannot set undefined variable '{s.name}'"
+                           f"{self._suggest(s.name)}", s)
         elif isinstance(s, A.IfStmt):
             s.condition = self._check_expr(s.condition)
             self._check_block(s.then_body)
@@ -356,7 +378,8 @@ class SemanticAnalyzer:
         if node.id in BUILTINS or node.id in self.functions \
                 or node.id in self.classes:
             return node
-        self.error(f"undefined variable '{node.id}'", node)
+        self.error(f"undefined variable '{node.id}'{self._suggest(node.id)}",
+                   node)
 
     def _arity_error(self, kind, name, params, got, node):
         required = sum(1 for p in params if p.default is None)
@@ -397,7 +420,8 @@ class SemanticAnalyzer:
             if entry is not None:
                 entry["used"] = True
                 return e
-            self.error(f"undefined function '{name}'", func)
+            self.error(f"undefined function '{name}'{self._suggest(name)}",
+                       func)
         # Attribute or other callable: check the object, can't verify arity
         e.func = self._check_expr(func)
         return e

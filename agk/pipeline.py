@@ -156,9 +156,12 @@ def compile_program(program, filename="<string>", search_paths=(),
         search_paths = [os.getcwd()]
     modules = _resolve_modules(program, filename, list(search_paths))
     warnings = []
+    seen_progs = []
     for _name, mod_prog, mod_file in modules:
-        _, mod_warnings = analyze(mod_prog, filename=mod_file)
+        _, mod_warnings = analyze(mod_prog, filename=mod_file,
+                                  extra_top_levels=seen_progs)
         warnings.extend(mod_warnings)
+        seen_progs.append(mod_prog)
     resolved = {name for name, _, _ in modules}
     extra = list(extra_top_levels) + [mp for _, mp, _ in modules]
     program, main_warnings = analyze(program, filename=filename,

@@ -1,0 +1,19 @@
+# AGK-Real standard library: regular-expression utilities.
+# Import with: import regexutils
+# (Functions are inlined into your program; call them directly.)
+
+import re
+
+define function regex_match that takes pattern as String, text as String and returns Boolean:
+    if re.search(pattern, text):
+        return true
+    return false
+
+define function regex_find_all that takes pattern as String, text as String and returns List:
+    return re.findall(pattern, text)
+
+define function regex_replace that takes pattern as String, replacement as String, text as String and returns String:
+    return re.sub(pattern, replacement, text)
+
+define function regex_split that takes pattern as String, text as String and returns List:
+    return re.split(pattern, text)

@@ -1,0 +1,28 @@
+# AGK-Real standard library: SQLite helpers.
+# Import with: import sqliteutils
+# (Functions are inlined into your program; call them directly.)
+#
+# These helpers are deliberately stateless: every call opens the database,
+# runs its statement, commits (for writes), and closes the connection.
+
+import sqlite3
+
+define function db_execute that takes db_path as String, sql as String and returns String:
+    create con as Object
+    set con to sqlite3.connect(db_path)
+    con.execute(sql)
+    con.commit()
+    con.close()
+    return "ok"
+
+define function db_query that takes db_path as String, sql as String and returns List:
+    create con as Object
+    set con to sqlite3.connect(db_path)
+    create cur as Object
+    set cur to con.execute(sql)
+    create out as List
+    set out to []
+    for each r in cur:
+        out.append(list(r))
+    con.close()
+    return out

@@ -1,0 +1,20 @@
+# AGK-Real standard library: CSV utilities.
+# Import with: import csvutils
+# (Functions are inlined into your program; call them directly.)
+
+import csv
+import io
+
+define function csv_parse that takes text as String and returns List:
+    create reader as Object
+    set reader to csv.reader(io.StringIO(text))
+    return list(reader)
+
+define function csv_to_text that takes rows as List and returns String:
+    create buf as Object
+    set buf to io.StringIO()
+    create writer as Object
+    set writer to csv.writer(buf)
+    for each row in rows:
+        writer.writerow(row)
+    return buf.getvalue()

@@ -9,9 +9,10 @@ suite compiles each one.
 
 ## Install and run
 
+AGK-Real 0.3.0 is PyPI-ready. From the repo root:
+
 ```sh
-cd agk-real
-python -m venv .venv && .venv/bin/pip install -e .   # or just use .venv/bin/python
+pip install .            # installs the `agk` command system-wide
 ```
 
 Write `hello.agk`:
@@ -21,12 +22,24 @@ define function main:
     print("hello, agk")
 ```
 
+Then, from anywhere:
+
 ```sh
-.venv/bin/python -m agk run hello.agk     # compile and run
-.venv/bin/python -m agk check hello.agk   # compile only, show errors/warnings
-.venv/bin/python -m agk build hello.agk   # emit hello.py
-.venv/bin/python -m agk repl              # interactive session
+agk run hello.agk        # compile and run
+agk check hello.agk      # compile only, show errors/warnings
+agk build hello.agk      # emit hello.py
+agk repl                 # interactive session
 ```
+
+The standard library (`agk/stdlib/*.agk`) ships inside the installed
+package, so `import strutils` and friends work wherever `agk` is
+installed — no need to run from the repo directory. For development, a
+venv still works: `python -m venv .venv && .venv/bin/pip install -e .`,
+then `.venv/bin/python -m agk run hello.agk`.
+
+CI runs the full test suite on Python 3.9–3.12 for every push and pull
+request. The release process is documented in `RELEASING.md`; releases
+are never published without the maintainer's go-ahead.
 
 `run` prints compiler warnings to stderr but still runs. `check` exits
 non-zero on any error. `build` writes a single self-contained `.py` file.
@@ -236,6 +249,19 @@ define function main:
     print(shout("done"))
 ```
 
+A bare `import sys` passes straight through to the generated Python
+untouched, so command-line arguments work in compiled programs:
+
+```agk
+import sys
+
+define function main:
+    print(sys.argv[1])
+```
+
+`sys.argv[0]` is the program path, `sys.argv[1:]` the user args — same
+as Python.
+
 ## Collections and expressions
 
 ```agk
@@ -273,7 +299,7 @@ define function main:
 
 ## The standard library
 
-Six modules ship with the compiler (in `agk/stdlib/`). Import them by
+Nine modules ship with the compiler (in `agk/stdlib/`). Import them by
 name; their functions are inlined into your program.
 
 **strutils** — `shout(s)`, `repeat_string(s, n)`, `join_lines(lines)`,
@@ -290,6 +316,49 @@ name; their functions are inlined into your program.
 **httputils** — `http_get(url)` returns the response body as a String
 
 **dateutils** — `today()` (`"YYYY-MM-DD"`), `now()`, `add_days(date, n)`
+
+**csvutils** — `csv_parse(text)` (rows of strings), `csv_to_text(rows)`
+(round-trip safe)
+
+**regexutils** — `regex_match(pattern, text)` (Boolean, true if the
+pattern is found anywhere), `regex_find_all(pattern, text)`,
+`regex_replace(pattern, replacement, text)`, `regex_split(pattern, text)`
+
+**sqliteutils** — `db_execute(db_path, sql)` (runs the statement,
+returns `"ok"`), `db_query(db_path, sql)` (returns rows as a List of
+lists). Each call opens the database, commits writes, and closes it —
+no connection to manage.
+
+```agk
+import csvutils
+
+define function main:
+    create rows as List
+    set rows to csv_parse("name,age\nAmy,30")
+    print(csv_to_text(rows))
+```
+
+```agk
+import regexutils
+
+define function main:
+    print(regex_match("\\d+", "abc123"))
+    print(regex_find_all("\\d+", "a1b22"))
+    print(regex_replace("\\s+", "-", "a b  c"))
+```
+
+```agk
+import sqliteutils
+
+define function main:
+    create p as String
+    set p to "/tmp/agk_demo.db"
+    db_execute(p, "CREATE TABLE t (name TEXT, n INT)")
+    print(db_query(p, "SELECT * FROM t"))
+```
+
+Note the doubled backslashes in the regex patterns: `"\\d+"` is the
+two-character string `\d+` by the time Python's `re` sees it.
 
 ```agk
 import jsonutils
@@ -327,6 +396,61 @@ Type a line ending in `:` to enter a block; an empty line ends it.
 Expressions print their value. Definitions, variables, and imports
 persist for the session. `exit` quits.
 
+## Tooling
+
+### `agk fmt` — canonical formatting
+
+`agk fmt` rewrites a `.agk` file with canonical layout: 4-space
+indentation derived from block structure, single spaces between tokens,
+at most one blank line between statements, no trailing whitespace, and
+exactly one newline at the end of the file. Comments and string contents
+are preserved verbatim. Formatting is idempotent — running it twice
+changes nothing the second time.
+
+```sh
+agk fmt game.agk          # rewrite game.agk in place
+agk fmt --check game.agk  # exit 0 if canonical, 1 if it would reformat
+```
+
+### `agk test` — run your AGK test suite
+
+`agk test [path]` discovers `test_*.agk` / `*_test.agk` files (recursive
+for directories, `.` by default), compiles each with the real pipeline,
+and runs every `define function test_<name>:` in it. A test passes if it
+returns without raising; it fails if it raises — test authors use
+`raise "message"` on failure. Failures print an AGK-mapped traceback
+pointing at your AGK source line. Output is `PASS`/`FAIL` lines followed
+by a `N passed, M failed` summary. Exit codes: 0 all green, 1 failures,
+2 usage/IO errors. Sibling helpers work: `import helper` inlines
+`helper.agk` next to the test file, and you call its functions by bare
+name.
+
+Example test file `test_math.agk`:
+
+```agk
+define function add that takes a as Integer, b as Integer and returns Integer:
+    return a + b
+
+define function test_add:
+    create r as Integer
+    set r to add(2, 3)
+    if r != 5:
+        raise "expected 5, got {r}"
+```
+
+### Editor support (LSP)
+
+`python -m agk.lsp` runs a minimal language server with no dependencies
+beyond the standard library. It speaks JSON-RPC over stdio with
+`Content-Length` framing: opening or editing a `.agk` file runs it
+through the real compile pipeline and publishes the compiler's errors
+as LSP diagnostics; hover shows a markdown summary of any defined
+function, class, constant, variable, parameter, or field, and
+go-to-definition jumps to the defining line. It is deliberately small —
+stdio only, full-document sync, first compiler error per change, no
+workspace symbols — enough for any generic stdio LSP client extension.
+VS Code setup is in `editors/vscode/README.md`.
+
 ## Errors
 
 Errors always name the file, line, and column — never a traceback:
@@ -336,6 +460,20 @@ hello.agk:2:9: semantic error: cannot set undefined variable 'naem'
 hello.agk:1:1: parser error: expected indented block, found 'set'
 hello.agk:3:5: lexer error: unexpected character '?'
 ```
+
+When you misspell a name, the compiler suggests the closest known name
+instead of just saying "undefined". Candidates come from variables in
+scope, declared functions, classes, and builtins; if nothing is close
+enough, the original message is shown unchanged:
+
+```text
+hello.agk:3:4: semantic error: cannot set undefined variable 'greting'. did you mean 'greeting'?
+hello.agk:2:10: semantic error: undefined function 'fobar'. did you mean 'foobar'?
+hello.agk:3:15: semantic error: undefined variable 'zzz'
+```
+
+This applies to undefined variables, `set` on undeclared names,
+undefined functions, and undefined base classes.
 
 Warnings (unused variables, unreachable code, values never assigned)
 go to stderr and never stop a build.
