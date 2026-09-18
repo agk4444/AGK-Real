@@ -9,7 +9,7 @@ suite compiles each one.
 
 ## Install and run
 
-AGK-Real 0.3.0 is PyPI-ready. From the repo root:
+AGK-Real 0.4.0 is PyPI-ready. From the repo root:
 
 ```sh
 pip install .            # installs the `agk` command system-wide
@@ -60,9 +60,8 @@ define function main:
     print(n)
 ```
 
-Types (`Integer`, `Float`, `String`, `Boolean`, `List`, `Object`) are
-documented intent in v1 — the compiler records them but does not
-type-check.
+Types are statically checked — see [Static typing](#static-typing)
+below.
 
 ## Functions
 
@@ -90,6 +89,46 @@ define function main:
 ```
 
 A parameter without a default may not follow one with a default.
+
+## Static typing
+
+Annotations are checked, not just documented. The compiler infers
+simple types for literals (`42` is `Integer`, `"hi"` is `String`,
+`true` is `Boolean`, `3.14` is `Float`, `[1, 2]` is `List`), for
+arithmetic and comparisons, and for calls to functions with declared
+return types — then verifies every `set`, argument, `return`,
+constant, default value, and field assignment against the declared
+type:
+
+```agk
+define function add that takes a as Integer, b as Integer and returns Integer:
+    return a + b
+
+define function main:
+    create total as Integer
+    set total to add(20, 22)
+    print(total)
+```
+
+A mismatch is a compile error naming the file, line, and column:
+
+```text
+hello.agk:5:5: type error: type mismatch: cannot assign String to variable 'total' declared as Integer
+```
+
+The rules are deliberately simple — gradual typing, not a proof
+system:
+
+- `Object` accepts anything, in either direction. It is the dynamic
+  escape hatch: declare something `as Object` when you don't want it
+  checked.
+- Anything the checker cannot infer (list elements, method calls on
+  `Object`s, `for each` loop variables) is "unknown" and never
+  produces an error.
+- `Integer` widens to `Float`; a subclass instance fits a variable
+  declared with its base class.
+- Functions without a declared return type are not checked for what
+  they return. There are no generics and no union types.
 
 ## Branching
 
@@ -180,6 +219,93 @@ binding. `finally:` is optional. A bare `raise` inside a `catch` block
 re-raises the current exception. Raising a string message raises
 `Exception(message)`.
 
+## Async functions
+
+Mark a function `async` and it compiles to a Python coroutine. Inside
+one, `await` pauses until the awaited call finishes — handy for I/O
+like network requests or timers:
+
+```agk
+import asyncio
+
+define async function fetch_title that takes url as String:
+    await asyncio.sleep(0.01)
+    return "title of " + url
+
+define async function main:
+    create t as String
+    set t to await fetch_title("example.com")
+    print(t)
+```
+
+`await` outside an `async` function is a compile error. If `main`
+itself is async, `agk run` drives it with `asyncio.run` automatically
+— no boilerplate needed. Async methods work the same way; constructors
+can't be async.
+
+## Generators
+
+A function containing `yield` becomes a generator: calling it returns
+a lazy sequence, one value per `yield`. Consume it with an ordinary
+`for` loop — values are produced on demand, so even an infinite
+generator is fine as long as the loop exits:
+
+```agk
+define function fibonacci:
+    create a as Integer
+    create b as Integer
+    set a to 0
+    set b to 1
+    while true:
+        yield a
+        create next as Integer
+        set next to a + b
+        set a to b
+        set b to next
+
+define function main:
+    create count as Integer
+    set count to 0
+    for each n in fibonacci():
+        print(n)
+        set count to count + 1
+        if count >= 6:
+            return
+```
+
+A bare `yield` yields `None`. (`yield` inside an `async` function is
+rejected — AGK has no async generators.)
+
+## Decorators
+
+Put `@name` (or `@name(args)`) lines directly above a `define
+function` to apply a Python decorator — the function is replaced by
+`name(function)`. A decorator can be any callable: a plain function,
+or a class instance with a `__call__` method:
+
+```agk
+define class Doubler:
+    variable fn as Object
+    define constructor that takes f as Object:
+        set fn to f
+    define function __call__:
+        return self.fn() * 2
+
+@Doubler
+define function five:
+    return 5
+
+define function main:
+    print(five())
+```
+
+This prints `10`: `five` was replaced by `Doubler(five)`, whose
+`__call__` doubles the result. Decorator names resolve like any other
+name (a typo gets a "did you mean?" hint). They work on methods too,
+but note the Python rule: wrapping a *method* in a non-descriptor
+object breaks method binding, so method decorators should return the
+function unchanged (or be descriptors).
+
 ## Classes
 
 Fields are declared with `variable`. Inside methods, just name the
@@ -261,6 +387,61 @@ define function main:
 
 `sys.argv[0]` is the program path, `sys.argv[1:]` the user args — same
 as Python.
+
+## Calling C libraries (FFI)
+
+`extern function` declares a C function from a shared library. The
+declared name is both the AGK name and the C symbol name; calls look and
+type-check exactly like normal function calls (wrong argument count is a
+compile error).
+
+```agk
+extern function strlen that takes s as String and returns Integer from "c"
+extern function getpid that returns Integer from "c"
+
+define function main:
+    print(strlen("hello"))
+    print(getpid())
+```
+
+The `from` string is a library name or a path. A plain name like `"c"`
+is resolved with `ctypes.util.find_library` (so it finds `libc.so.6` on
+Linux); anything containing `/` is used as a path as-is. Each library is
+loaded once, no matter how many functions you declare from it.
+
+Only four AGK types cross the boundary:
+
+| AGK | C | note |
+|---|---|---|
+| `String` | `char *` | utf-8 encoded on the way in, decoded on the way out (a NULL return becomes `None`) |
+| `Integer` | `int` | |
+| `Float` | `double` | |
+| `Boolean` | `bool` | |
+
+Any other type name is a compile error, and parameters can't have
+defaults. Omit the return type for `void` C functions:
+
+```agk
+extern function sleep that takes seconds as Integer from "c"
+
+define function main:
+    sleep(0)
+    print("wide awake")
+```
+
+Because real C libraries export names like `abs`, an `extern` name is
+allowed to shadow a builtin — the generated wrapper deliberately
+replaces it:
+
+```agk
+extern function abs that takes n as Integer and returns Integer from "c"
+
+define function main:
+    print(abs(-42))
+```
+
+FFI is Linux-first in this release: short library names resolve through
+the system loader, so on other platforms prefer an explicit path.
 
 ## Collections and expressions
 
@@ -378,6 +559,65 @@ string, so literal braces are written `{{` and `}}`.
 You can write your own: put `helpers.agk` next to your program and
 `import helpers`.
 
+## Packages
+
+AGK has a minimal, registry-free package manager: packages are plain
+git repositories containing `.agk` modules (Go-modules style, minus
+the central registry). `agk pkg` keeps a manifest, `agk.json`, in your
+project directory:
+
+```text
+$ agk pkg init --name myapp
+created agk.json (myapp 0.1.0)
+$ agk pkg install https://example.com/greeter.git
+installed greeter -> /home/you/myapp/packages/greeter @ 3fa1c9d2e4b5
+$ agk pkg list
+greeter 1.2.0 https://example.com/greeter.git @ 3fa1c9d2e4b5
+```
+
+Installs are shallow clones into `packages/<name>/`, and the commit
+hash is pinned in `agk.json` next to the URL:
+
+```json
+{
+  "name": "myapp",
+  "version": "0.1.0",
+  "dependencies": {
+    "greeter": {
+      "url": "https://example.com/greeter.git",
+      "commit": "3fa1c9d2e4b5...",
+      "version": "1.2.0"
+    }
+  }
+}
+```
+
+A local directory installs by copy instead of clone (handy for
+development and tests), and `--name` overrides the derived package
+name. Re-running `install` for an already-installed package is a
+no-op.
+
+Once installed, import a package module like any other:
+
+```agk
+import greeter
+
+define function main:
+    print("greeter installed")
+```
+
+Package functions are inlined and called directly, exactly like
+stdlib modules. Module lookup order is:
+
+1. the importing file's own directory,
+2. the caller's search paths,
+3. the bundled stdlib,
+4. installed packages (`packages/<name>/`, from the nearest `agk.json`
+   walking up from the compiled file).
+
+So a module next to your program — or a stdlib module — always wins
+over an installed package with the same name.
+
 ## The REPL
 
 ```
@@ -438,6 +678,116 @@ define function test_add:
         raise "expected 5, got {r}"
 ```
 
+**Fixtures.** If a test module defines `setup`, it runs before each
+test function; `teardown` runs after each one — even when the test (or
+`setup` itself) raised. Neither name is treated as a test:
+
+```agk
+define function setup:
+    print("seeding test data")
+
+define function teardown:
+    print("cleaning up")
+
+define function test_one:
+    print("running test one")
+```
+
+**Mocks.** Every test module gets three helpers for stubbing
+module-level functions (the names `mock`, `mock_return`, `unmock` are
+reserved in test files). Because imports are inlined into a single
+namespace, mocking intercepts every call — including calls from
+imported helper code. A mock records each call's arguments;
+`unmock(m)` restores the original:
+
+```
+define function fetch_price that takes sym as String and returns Integer:
+    return 999  # would hit the network in real life
+
+define function test_total:
+    create m as Mock
+    set m to mock_return("fetch_price", 42)
+    create t as Integer
+    set t to fetch_price("ACME") * 2
+    if t != 84:
+        raise "stubbed total wrong: {t}"
+    if m.call_count() != 1:
+        raise "expected 1 call"
+    create arg0 as String
+    set arg0 to m.call_arg(0, 0)  # arg 0 of call 0
+    if arg0 != "ACME":
+        raise "wrong arg: {arg0}"
+    unmock(m)  # fetch_price works normally again
+```
+
+`mock("name")` is the same but the stub returns nothing (useful for
+void functions you just want to observe). Mocking a name that doesn't
+exist fails the test immediately instead of silently mocking nothing,
+so typos surface fast.
+
+**Coverage.** `agk test --coverage [path]` traces which AGK lines ran
+and prints a per-file table after the summary:
+
+```sh
+agk test --coverage
+# 2 passed, 0 failed
+# coverage:
+#   test_math.agk: 81% (22/27 lines)
+```
+
+Percentages are covered / total executable AGK lines (lines that
+produce code; blank lines and comments don't count). Bundled stdlib
+modules pulled in by `import` are excluded from the table.
+
+### `agk debug` — step through AGK code
+
+`agk debug <file.agk>` runs your program under an AGK-aware debugger
+(a thin wrapper over Python's `pdb`). Everything speaks AGK lines, not
+generated-Python lines:
+
+```agk
+define function add that takes a as Integer, b as Integer and returns Integer:
+    return a + b
+
+define function main:
+    create x as Integer
+    set x to add(2, 3)
+    print(x)
+```
+
+```text
+$ agk debug prog.agk
+Debugging prog.agk: break/step/list/p use AGK lines; 'help' lists pdb commands.
+> "prog.agk"(1)<module>()
+-> define function add that takes a as Integer, b as Integer and returns Integer:
+(agk) break 8
+Breakpoint 1 at prog.agk:8
+(agk) continue
+> "prog.agk"(8)main()
+-> set x to add(2, 3)
+(agk) step
+> "prog.agk"(1)add()
+-> define function add that takes a as Integer, b as Integer and returns Integer:
+(agk) continue
+5
+```
+
+`break <line>` (or `break <file.agk>:<line>`) sets a breakpoint at the
+AGK line; stack frames and `where` show `"file.agk"(line)func()` with
+the AGK source line; `list` shows AGK source with `->` on the current
+line and `B` on breakpoint lines. `p <var>` prints AGK variables —
+names are preserved verbatim by codegen, and inside methods a bare
+field name (`p n`) resolves to `self.n` automatically. `step`, `next`,
+`continue`, `up`/`down` behave as in pdb, and commands can be piped on
+stdin for scripted sessions. An unhandled exception prints the same
+AGK-mapped traceback as `agk run` (exit code 2).
+
+Known limits: breakpoints need an executable AGK line (blank lines
+report `No code at file:line`); frames from non-AGK code (stdlib,
+generated `elif`/`else` lines) fall back to showing the real Python
+location; post-mortem inspection after a crash is not entered
+automatically.
+
 ### Editor support (LSP)
 
 `python -m agk.lsp` runs a minimal language server with no dependencies
@@ -451,6 +801,35 @@ stdio only, full-document sync, first compiler error per change, no
 workspace symbols — enough for any generic stdio LSP client extension.
 VS Code setup is in `editors/vscode/README.md`.
 
+Capabilities beyond diagnostics/hover/definition:
+
+- **Completion** (`textDocument/completion`): on any identifier prefix it
+  suggests in-scope variables and parameters, functions, classes,
+  constants, keywords, builtin functions, and standard-library module
+  names, each with its kind and signature or type. Typing a dot after a
+  module name (e.g. `strutils.`) completes that module's functions.
+  Completions are computed from the last successfully parsed document;
+  while the file has a syntax error only keywords, builtins, and stdlib
+  names are suggested.
+- **Rename** (`textDocument/rename`): renames the symbol under the cursor
+  everywhere it is used — definition plus all references — via a
+  `WorkspaceEdit`. Resolution is scope-aware (it reuses the semantic
+  analyzer's scope rules), so renaming a variable called `x` in one
+  function never touches a different `x` in another function. Renaming
+  with the cursor on empty space or a builtin answers `null`.
+- **Find references** (`textDocument/references`): returns every location
+  of the symbol under the cursor as line/character ranges. The definition
+  site is included by default; pass
+  `"context": {"includeDeclaration": false}` to get uses only.
+- **Document symbols** (`textDocument/documentSymbol`): a file outline —
+  functions with their parameters, classes with fields/constructor/methods,
+  constants, and imports — each with its full range and name range.
+
+One honest limitation: method calls on a plain variable (`a.deposit(...)`)
+are not tracked by rename/references, because AGK carries no static
+receiver type to resolve them to a class. `self`-calls inside methods are
+tracked.
+
 ## Errors
 
 Errors always name the file, line, and column — never a traceback:
@@ -459,6 +838,7 @@ Errors always name the file, line, and column — never a traceback:
 hello.agk:2:9: semantic error: cannot set undefined variable 'naem'
 hello.agk:1:1: parser error: expected indented block, found 'set'
 hello.agk:3:5: lexer error: unexpected character '?'
+hello.agk:3:5: type error: type mismatch: cannot assign String to variable 'count' declared as Integer
 ```
 
 When you misspell a name, the compiler suggests the closest known name
@@ -493,8 +873,7 @@ ZeroDivisionError: division by zero
 
 ## What v2 does not do
 
-- No type checking: annotations are documentation.
-- No generics, no keyword arguments.
+- No generics, no union types, no keyword arguments.
 - `implements` is reserved and rejected.
 - One file per program plus `.agk` module imports; no packages.
 - Indentation is 4 spaces per level, no tabs.

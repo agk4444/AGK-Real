@@ -30,3 +30,8 @@ class ParserError(AGKError):
 class SemanticError(AGKError):
     def __init__(self, message, filename="<input>", line=0, column=0):
         super().__init__(message, filename, line, column, phase="semantic error")
+
+
+class TypeCheckError(AGKError):
+    def __init__(self, message, filename="<input>", line=0, column=0):
+        super().__init__(message, filename, line, column, phase="type error")

@@ -58,11 +58,13 @@ class Parser:
         while not self.check(T.EOF):
             if self.match(T.IMPORT):
                 statements.append(self.parse_import())
-            elif self.check(T.DEFINE):
+            elif self.check(T.DEFINE, T.AT):
                 statements.append(self.parse_top_level_define())
+            elif self.check(T.EXTERN):
+                statements.append(self.parse_extern_def())
             else:
                 self.error(f"unexpected {self.peek().value!r} at top level; "
-                           f"expected 'import' or 'define'")
+                           f"expected 'import', 'define', or 'extern'")
             self._skip_newlines()
         return A.Program(statements)
 
@@ -75,28 +77,61 @@ class Parser:
         return A.Import(".".join(parts), line=imp.line, col=imp.column)
 
     def parse_top_level_define(self):
+        decorators = self.parse_decorators()
         defn = self.expect(T.DEFINE, "expected 'define'")
+        is_async = self.match(T.ASYNC) is not None
         tok = self.peek()
         if tok.type == T.FUNCTION:
-            return self.parse_function_def()
+            return self.parse_function_def(decorators, is_async)
         if tok.type == T.CLASS:
+            if is_async:
+                self.error("classes cannot be async", defn)
+            if decorators:
+                self.error("decorators are not supported on classes", defn)
             return self.parse_class_def()
         if tok.type == T.CONSTANT:
+            if is_async:
+                self.error("constants cannot be async", defn)
+            if decorators:
+                self.error("decorators are not supported on constants", defn)
             return self.parse_constant_def()
         self.error("expected 'function', 'class', or 'constant' after 'define'")
 
+    def parse_decorators(self):
+        """v0.4.0: consume `@name` / `@name(args)` lines; returns a list of
+        Name/Call expressions (possibly empty)."""
+        decorators = []
+        while self.match(T.AT):
+            name_tok = self.expect(T.IDENTIFIER,
+                                   "expected decorator name after '@'")
+            node = A.Name(name_tok.value,
+                          line=name_tok.line, col=name_tok.column)
+            if self.match(T.LPAREN):
+                args = []
+                if not self.check(T.RPAREN):
+                    args.append(self.parse_expression())
+                    while self.match(T.COMMA):
+                        args.append(self.parse_expression())
+                self.expect(T.RPAREN,
+                            "expected ')' after decorator arguments")
+                node = A.Call(node, args,
+                              line=name_tok.line, col=name_tok.column)
+            self.expect(T.NEWLINE, "expected end of line after decorator")
+            decorators.append(node)
+        return decorators
+
     # -- definitions ----------------------------------------------------
 
-    def _parse_signature(self):
+    def _parse_signature(self, allow_defaults=True):
         """Parse `name [that takes a as T, ...] [and returns T]`, after
-        `define function` / `define constructor`.
+        `define function` / `define constructor` / `extern function`.
         Returns (name_tok|None, params, return_type)."""
         name_tok = self.advance() if self.check(T.IDENTIFIER) else None
         params = []
         return_type = None
         if self.match(T.THAT):
             if self.match(T.TAKES):
-                params = self._parse_params()
+                params = self._parse_params(allow_defaults)
             if self.match(T.AND):
                 self.expect(T.RETURNS, "expected 'returns' after 'and'")
                 return_type = self.expect(T.IDENTIFIER,
@@ -106,19 +141,22 @@ class Parser:
                                           "expected return type name").value
         return name_tok, params, return_type
 
-    def _parse_params(self):
-        params = [self._parse_param()]
+    def _parse_params(self, allow_defaults=True):
+        params = [self._parse_param(allow_defaults)]
         while self.match(T.COMMA):
-            params.append(self._parse_param())
+            params.append(self._parse_param(allow_defaults))
         return params
 
-    def _parse_param(self):
+    def _parse_param(self, allow_defaults=True):
         name = self.expect(T.IDENTIFIER, "expected parameter name")
         self.expect(T.AS, f"expected 'as' after parameter {name.value!r}")
         type_name = self.expect(T.IDENTIFIER,
                                 f"expected type for parameter {name.value!r}")
         default = None
         if self.match(T.ASSIGN):
+            if not allow_defaults:
+                self.error("extern function parameters cannot have default "
+                           "values", name)
             default = self._parse_default(name)
         return A.Param(name.value, type_name.value, default,
                        line=name.line, col=name.column)
@@ -155,7 +193,7 @@ class Parser:
         self.advance()
         return node
 
-    def parse_function_def(self):
+    def parse_function_def(self, decorators=(), is_async=False):
         fn = self.expect(T.FUNCTION, "expected 'function'")
         name_tok, params, return_type = self._parse_signature()
         if name_tok is None:
@@ -163,7 +201,27 @@ class Parser:
         self.expect(T.COLON, "expected ':' after function signature")
         body = self.parse_block()
         return A.FunctionDef(name_tok.value, params, return_type, body,
+                             is_async=is_async,
+                             decorators=list(decorators),
                              line=fn.line, col=fn.column)
+
+    def parse_extern_def(self):
+        """FFI declaration (top level only, no body):
+        `extern function <name> [that takes ...] [and returns T] from "<lib>"`."""
+        ext = self.expect(T.EXTERN, "expected 'extern'")
+        self.expect(T.FUNCTION, "expected 'function' after 'extern'")
+        name_tok, params, return_type = self._parse_signature(
+            allow_defaults=False)
+        if name_tok is None:
+            self.error("expected function name after 'extern function'")
+        self.expect(T.FROM,
+                    "expected 'from \"<library>\"' after extern function "
+                    "signature")
+        lib_tok = self.expect(T.STRING,
+                              "expected library name in quotes after 'from'")
+        self.expect(T.NEWLINE, "expected end of line after extern declaration")
+        return A.ExternDef(name_tok.value, params, return_type, lib_tok.value,
+                           line=ext.line, col=ext.column)
 
     def parse_constant_def(self):
         cnst = self.expect(T.CONSTANT, "expected 'constant'")
@@ -198,14 +256,22 @@ class Parser:
                 continue
             if self.match(T.VARIABLE):
                 fields.append(self._parse_field())
-            elif self.check(T.DEFINE):
-                defn = self.advance()
+            elif self.check(T.DEFINE, T.AT):
+                decorators = self.parse_decorators()
+                defn = self.expect(T.DEFINE, "expected 'define'")
+                is_async = self.match(T.ASYNC) is not None
                 if self.match(T.CONSTRUCTOR):
                     if constructor is not None:
                         self.error("duplicate constructor", defn)
+                    if decorators:
+                        self.error("decorators are not supported on "
+                                   "constructors", defn)
+                    if is_async:
+                        self.error("constructors cannot be async", defn)
                     constructor = self._parse_constructor()
                 elif self.check(T.FUNCTION):
-                    methods.append(self.parse_function_def())
+                    methods.append(self.parse_function_def(decorators,
+                                                           is_async))
                 else:
                     self.error("expected 'constructor' or 'function' "
                                "after 'define' in class body", defn)
@@ -264,8 +330,12 @@ class Parser:
             return self.parse_raise()
         if tok.type == T.RETURN:
             return self.parse_return()
+        if tok.type == T.YIELD:
+            return self.parse_yield()
         if tok.type == T.DEFINE:
             self.error("'define' is only allowed at top level or in a class body")
+        if tok.type == T.EXTERN:
+            self.error("'extern' is only allowed at top level")
         if tok.type == T.IDENTIFIER and self._next_is(T.ASSIGN):
             self.error("unexpected '='; AGK uses 'set <name> to <expr>' "
                        "for assignment (or '==' for comparison)", tok)
@@ -390,6 +460,16 @@ class Parser:
         self.expect(T.NEWLINE, "expected end of line")
         return A.ReturnStmt(value, line=kw.line, col=kw.column)
 
+    def parse_yield(self):
+        """v0.4.0: `yield <expr>` or bare `yield`."""
+        kw = self.expect(T.YIELD, "expected 'yield'")
+        if self.check(T.NEWLINE):
+            self.advance()
+            return A.YieldStmt(None, line=kw.line, col=kw.column)
+        value = self.parse_expression()
+        self.expect(T.NEWLINE, "expected end of line")
+        return A.YieldStmt(value, line=kw.line, col=kw.column)
+
     # -- expressions (precedence climbing, per SPEC section 5) ------------
 
     def parse_expression(self):
@@ -457,6 +537,12 @@ class Parser:
             sym = "-" if op.type == T.MINUS else "not"
             operand = self.parse_unary()
             return A.UnaryOp(sym, operand, line=op.line, col=op.column)
+        aw = self.match(T.AWAIT)
+        if aw:
+            # v0.4.0: `await <unary>`; binds like Python, so
+            # `await f() + 1` is `(await f()) + 1`.
+            return A.AwaitExpr(self.parse_unary(),
+                              line=aw.line, col=aw.column)
         return self.parse_postfix()
 
     def parse_postfix(self):

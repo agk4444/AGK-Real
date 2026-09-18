@@ -4,7 +4,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "agk-real"
-version = "0.3.0"
+version = "0.4.0"
 description = "AGK-Real: an English-like programming language that compiles to plain Python"
 readme = "README.md"
 requires-python = ">=3.9"

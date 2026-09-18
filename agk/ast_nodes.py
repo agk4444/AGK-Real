@@ -42,11 +42,26 @@ class Param(Node):
 
 
 @dataclass
+class ExternDef(Node):
+    """FFI declaration: `extern function <name> [...] from "<lib>"`.
+
+    Binds a C function from a shared library. params use Param nodes
+    (no defaults allowed); return_type may be None (void). lib is the
+    library name or path as written in the `from "..."` clause."""
+    name: str
+    params: List[Param]
+    return_type: Optional[str]
+    lib: str
+
+
+@dataclass
 class FunctionDef(Node):
     name: str
     params: List[Param]
     return_type: Optional[str]
     body: List[Any]
+    is_async: bool = False                    # v0.4.0: `define async function`
+    decorators: List[Any] = field(default_factory=list)  # v0.4.0: `@name` lines
 
 
 @dataclass
@@ -145,6 +160,13 @@ class ReturnStmt(Node):
 
 
 @dataclass
+class YieldStmt(Node):
+    """v0.4.0: `yield <expr>` or bare `yield`. A function whose body
+    contains one becomes a generator (Python semantics)."""
+    value: Optional[Any]  # None => bare `yield` (yields None)
+
+
+@dataclass
 class ExprStmt(Node):
     """A bare expression used as a statement (e.g. a call like print(x))."""
     expr: Any
@@ -187,6 +209,13 @@ class BinOp(Node):
 @dataclass
 class UnaryOp(Node):
     op: str      # '-', 'not'
+    operand: Any
+
+
+@dataclass
+class AwaitExpr(Node):
+    """v0.4.0: `await <expr>` — valid only inside an async function.
+    Binds like Python: `await f() + 1` is `(await f()) + 1`."""
     operand: Any
 
 

@@ -1,0 +1,13 @@
+import asyncio
+
+define async function fetch_title that takes url as String:
+    await asyncio.sleep(0.01)
+    return "title of " + url
+
+define async function main:
+    create pages as List
+    set pages to ["a", "b", "c"]
+    for each p in pages:
+        create t as String
+        set t to await fetch_title(p)
+        print(t)

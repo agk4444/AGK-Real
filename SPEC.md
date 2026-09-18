@@ -36,11 +36,17 @@ if elif else while for each in from step return
 class variable constructor extends implements
 import try catch finally raise
 and or not true false
+extern
+async await yield
 ```
 
 Type names are ordinary identifiers by convention: `Integer Float String
-Boolean List Object`. They carry no runtime meaning (documented intent
-only); the compiler records them but does not type-check.
+Boolean List Object`. They carry no runtime meaning, but the compiler
+statically checks them (v0.4.0): assigning a value whose inferred type
+does not match a declared annotation is a compile error. `Object`
+accepts any type in either direction; anything the checker cannot infer
+is left unchecked (gradual typing). There are no generics and no union
+types.
 
 ## 4. Statements
 
@@ -184,18 +190,105 @@ catch:
   raised as-is (so `raise err` re-raises the caught exception object).
 - Only `Exception` subclasses are caught (matching Python semantics).
 
+### 4.12 Extern function declarations (FFI)
+```
+extern function <name> [that takes <a> as <Type>, ...] [and returns <Type>] from "<lib>"
+```
+- Top level only; no body. Declares a C function from a shared library.
+  The declared name is both the AGK name and the C symbol name.
+- Supported types are `String`, `Integer`, `Float`, `Boolean` — any other
+  type name is a semantic error. Parameters cannot have default values.
+- The return type may be omitted, for C functions returning `void`.
+- `<lib>`: a string containing `/` (or starting with `.`) is used as a
+  path as-is; otherwise it is resolved with `ctypes.util.find_library`,
+  falling back to the name itself. So `from "c"` finds `libc.so.6` on
+  Linux.
+- Each distinct library is loaded once via `ctypes.CDLL`. Every
+  declaration sets `argtypes`/`restype` from the table below and is
+  wrapped in a plain Python function of the declared name, so calls look
+  and arity-check exactly like normal AGK function calls.
+- Unlike `define function`, an extern name may deliberately shadow a
+  builtin (C libraries export names like `abs`); the generated wrapper
+  replaces the builtin in the module namespace.
+
+| AGK | ctypes | argument | result |
+|---|---|---|---|
+| `String` | `c_char_p` | utf-8 encoded | utf-8 decoded; a NULL return becomes `None` |
+| `Integer` | `c_int` | passed as-is | passed as-is |
+| `Float` | `c_double` | passed as-is | passed as-is |
+| `Boolean` | `c_bool` | passed as-is | passed as-is |
+
+`Integer` maps to C `int`, not `long`: results from APIs returning
+`size_t`/`long` are truncated to int range (a documented FFI
+limitation). Library resolution is Linux-first: short names like `"c"`
+and `"m"` resolve through the system loader; other platforms should
+pass an explicit path.
+
+### 4.13 Async functions (v0.4.0)
+```
+define async function <name> [that takes ...] [and returns <Type>]:
+    ...
+```
+- An `async` function compiles to Python `async def`. `await <expr>`
+  inside one suspends until the awaited coroutine completes.
+- `await` outside an async function is a semantic error (it is a parse
+  error at top level, where only `import`/`define` may appear).
+- Async methods are allowed (`define async function` in a class body);
+  async constructors are a parse error.
+- If `main` is async, `agk run` / `agk build` execute it via
+  `asyncio.run(main())` and the generated module imports `asyncio`
+  automatically (unless the program already does).
+- `yield` inside an async function is a semantic error: AGK has no
+  async generators.
+
+### 4.14 Generators (v0.4.0)
+```
+yield <expr>
+yield
+```
+- `yield` may appear in any (non-async) function body. A function
+  containing `yield` becomes a generator: calling it returns a lazy
+  iterator, each `yield` producing the next value. A bare `yield`
+  produces `None`.
+- Generators are consumed with the ordinary `for` loops from §4.5
+  (`for each x in gen():`), which pull values lazily — an infinite
+  generator is fine as long as the loop exits.
+- `yield` outside a function is rejected (a parse error at top level).
+
+### 4.15 Decorators (v0.4.0)
+```
+@<name>
+@<name>(<args>)
+define function <name> ...:
+    ...
+```
+- One or more `@` lines directly above a `define function` (top level
+  or method) apply Python decorators: the function is replaced by
+  `<name>(<func>)`, or `<name>(<args>)(<func>)` for the argument form.
+  Multiple decorators apply bottom-up, as in Python.
+- Decorator names resolve through normal scope lookup (undefined names
+  are a semantic error, with "did you mean?" suggestions); argument
+  expressions are checked like any other expression.
+- Decorators are not supported on classes, constants, or constructors
+  (clean parse errors).
+- Note: a decorator that wraps a *method* in a plain (non-descriptor)
+  object breaks method binding, exactly as in Python — wrap top-level
+  functions, or return the function unchanged for methods.
+
 ## 5. Expressions (precedence, highest to lowest)
 
 1. Literals, names, parenthesised `( <expr> )`
 2. Calls: `<expr>(<args>)`, attribute access: `<expr>.<name>`,
    indexing: `<expr>[<expr>]`
-3. Unary `-x`, `not x`
-4. `*`, `/`, `%`
-5. `+`, `-`
-6. `<`, `>`, `<=`, `>=`
-7. `==`, `!=`
-8. `and`
-9. `or`
+3. `await <expr>` (async functions only; binds like Python, so
+   `await f() + 1` is `(await f()) + 1` and `await -x` is `await (-x)`)
+4. Unary `-x`, `not x`
+5. `*`, `/`, `%`
+6. `+`, `-`
+7. `<`, `>`, `<=`, `>=`
+8. `==`, `!=`
+9. `and`
+10. `or`
 
 List literal: `[1, 2, 3]`. Dict literal: `{"a": 1}`.
 
@@ -209,6 +302,10 @@ List literal: `[1, 2, 3]`. Dict literal: `{"a": 1}`.
   count as in v1.
 - A parameter without a default may not follow one with a default.
 - `return` outside a function → error.
+- `await` outside an async function → error; `yield` inside an async
+  function → error (no async generators).
+- Decorator names are resolved like any other name: an undefined
+  decorator is an error with a "did you mean?" suggestion.
 - Unused variable, unreachable code after `return` → warnings (non-fatal).
 - Undefined names get a "did you mean?" suggestion when a close candidate
   exists (searched among variables in scope, declared functions, classes,
@@ -234,6 +331,12 @@ List literal: `[1, 2, 3]`. Dict literal: `{"a": 1}`.
 | `for i from 10 to 1 step -3:` | `for i in range(10, <end-expr>, -3):` (inclusive both directions) |
 | `try:` / `catch e:` / `catch:` / `finally:` | `try:` / `except Exception as e:` / `except Exception:` / `finally:` |
 | `raise "boom"` / `raise` | `raise Exception("boom")` / `raise` (bare re-raise) |
+| `define async function f:` | `async def f():` |
+| `await g()` (inside async) | `await g()` |
+| async `define function main:` | `import asyncio` + `asyncio.run(main())` entrypoint |
+| `yield x` / `yield` | `yield x` / `yield` (function becomes a generator) |
+| `@timer` / `@retry(3)` above `define function` | `@timer` / `@retry(3)` above `def` |
+| `extern function strlen that takes s as String and returns Integer from "c"` | `import ctypes`; library loaded once via `ctypes.CDLL`; `def strlen(s):` wrapper with `argtypes=[c_char_p]`, `restype=c_int`, utf-8 encode/decode |
 | `true` / `false` | `True` / `False` |
 | `and` / `or` / `not` | direct mapping |
 | class / constructor / variable | `class`, `__init__`, `self.` fields |
@@ -271,6 +374,6 @@ Bundled `.agk` modules, importable by name with no install step:
 
 ## 10. Explicitly out of v2
 
-Multi-target codegen (JS/Kotlin/…), ternary `?:`, decorators,
+Multi-target codegen (JS/Kotlin/…), ternary `?:`,
 `implements`, slices, comprehensions, operator overloading, lambdas.
 Each is a clean parse error if attempted.

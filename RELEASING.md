@@ -6,9 +6,11 @@ never done on speculation.
 
 ## Checklist
 
-1. **Bump the version** in `pyproject.toml` (`[project] version`).
-   Follow semver: `0.3.0` is a milestone release, so patch bumps for fixes
-   (`0.3.1`), minor for new features (`0.4.0`).
+1. **Bump the version** in `pyproject.toml` (`[project] version`) and keep
+   `COMPILER_VERSION` in `agk/pipeline.py` in sync (it keys the `.agkcache/`
+   fingerprints, so a mismatch safely invalidates old caches).
+   Follow semver: `0.4.0` is a milestone release, so patch bumps for fixes
+   (`0.4.1`), minor for new features (`0.5.0`).
 
 2. **Run the full test suite** and confirm green:
    ```sh

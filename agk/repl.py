@@ -71,7 +71,7 @@ class Session:
         inputs resolve (and may redefine) them."""
         defined = set()
         for stmt in program.statements:
-            if isinstance(stmt, (A.FunctionDef, A.ClassDef, A.ConstantDef)):
+            if isinstance(stmt, (A.FunctionDef, A.ClassDef, A.ConstantDef, A.ExternDef)):
                 defined.add((type(stmt).__name__, stmt.name))
             elif isinstance(stmt, A.Import):
                 if not any(stmt.module == name for name, _, _ in modules):
@@ -81,11 +81,11 @@ class Session:
             if (type(d).__name__, d.name) not in defined
         ]
         for stmt in program.statements:
-            if isinstance(stmt, (A.FunctionDef, A.ClassDef, A.ConstantDef)):
+            if isinstance(stmt, (A.FunctionDef, A.ClassDef, A.ConstantDef, A.ExternDef)):
                 self.known_defs.append(stmt)
         for _name, mod_prog, _path in modules:
             for stmt in mod_prog.statements:
-                if isinstance(stmt, (A.FunctionDef, A.ClassDef, A.ConstantDef)):
+                if isinstance(stmt, (A.FunctionDef, A.ClassDef, A.ConstantDef, A.ExternDef)):
                     key = (type(stmt).__name__, stmt.name)
                     self.known_defs = [d for d in self.known_defs
                                        if (type(d).__name__, d.name) != key]
@@ -98,7 +98,7 @@ class Session:
         # Drop defs this chunk replaces before compiling, so redefinition
         # works the way it does in other REPLs.
         defined = {(type(s).__name__, s.name) for s in program.statements
-                   if isinstance(s, (A.FunctionDef, A.ClassDef, A.ConstantDef))}
+                   if isinstance(s, (A.FunctionDef, A.ClassDef, A.ConstantDef, A.ExternDef))}
         kept = [d for d in self.known_defs
                 if (type(d).__name__, d.name) not in defined]
         code, warnings, modules = compile_program(

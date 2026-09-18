@@ -36,6 +36,7 @@ _NO_SPACE_BEFORE = frozenset({
 })
 _NO_SPACE_AFTER = frozenset({
     TokenType.LPAREN, TokenType.LBRACKET, TokenType.LBRACE, TokenType.DOT,
+    TokenType.AT,  # v0.4.0: `@name`, not `@ name`
 })
 # A `(`/`[` that opens a call/index sticks to its target: `print("hi")`,
 # `items[0]`.

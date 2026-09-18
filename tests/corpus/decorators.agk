@@ -1,0 +1,13 @@
+define class Doubler:
+    variable fn as Object
+    define constructor that takes f as Object:
+        set fn to f
+    define function __call__:
+        return self.fn() * 2
+
+@Doubler
+define function five:
+    return 5
+
+define function main:
+    print(five())

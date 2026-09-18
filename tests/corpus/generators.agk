@@ -1,0 +1,20 @@
+define function fibonacci:
+    create a as Integer
+    create b as Integer
+    set a to 0
+    set b to 1
+    while true:
+        yield a
+        create next as Integer
+        set next to a + b
+        set a to b
+        set b to next
+
+define function main:
+    create count as Integer
+    set count to 0
+    for each n in fibonacci():
+        print(n)
+        set count to count + 1
+        if count >= 8:
+            return

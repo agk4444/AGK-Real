@@ -16,6 +16,7 @@ Raises SemanticError on the first error; collects warnings in .warnings.
 
 from . import ast_nodes as A
 from .errors import SemanticError
+from .ffi import FFI_CTYPES
 
 import difflib
 
@@ -50,10 +51,12 @@ class SemanticAnalyzer:
         self.filename = filename
         self.warnings = []
         self.functions = {}   # name -> FunctionDef (arity checking)
+        self.extern_functions = {}  # name -> ExternDef (FFI; arity checking)
         self.classes = {}     # name -> ClassDef
         self.constants = set()
         self._scope = None
         self._in_function = 0
+        self._in_async_function = 0  # v0.4.0: >0 while inside `async` def
         self._class_fields = None  # set of field names while inside a method
 
     # -- helpers ----------------------------------------------------------
@@ -74,6 +77,7 @@ class SemanticAnalyzer:
             candidates.update(scope.vars)
             scope = scope.parent
         candidates.update(self.functions)
+        candidates.update(self.extern_functions)
         candidates.update(self.classes)
         candidates.update(BUILTINS)
         candidates.discard(name)
@@ -92,6 +96,8 @@ class SemanticAnalyzer:
                 if isinstance(stmt, A.FunctionDef):
                     self._add_top_level(stmt.name, stmt, self.functions,
                                         "function")
+                elif isinstance(stmt, A.ExternDef):
+                    self._register_extern(stmt)
                 elif isinstance(stmt, A.ClassDef):
                     self._add_top_level(stmt.name, stmt, self.classes, "class")
                 elif isinstance(stmt, A.ConstantDef):
@@ -102,6 +108,8 @@ class SemanticAnalyzer:
             if isinstance(stmt, A.FunctionDef):
                 self._add_top_level(stmt.name, stmt, self.functions,
                                     "function")
+            elif isinstance(stmt, A.ExternDef):
+                self._register_extern(stmt)
             elif isinstance(stmt, A.ClassDef):
                 self._add_top_level(stmt.name, stmt, self.classes, "class")
             elif isinstance(stmt, A.ConstantDef):
@@ -149,11 +157,43 @@ class SemanticAnalyzer:
         return self.warnings
 
     def _add_top_level(self, name, node, table, kind):
-        if name in table or name in self.functions or name in self.classes:
+        if (name in table or name in self.functions or name in self.classes
+                or name in self.extern_functions):
             self.error(f"duplicate {kind} '{name}'", node)
         if name in BUILTINS:
             self.error(f"{kind} name '{name}' shadows a builtin", node)
         table[name] = node
+
+    def _register_extern(self, stmt):
+        """Register an `extern function` declaration: duplicate detection
+        plus FFI signature validation (supported types only)."""
+        name = stmt.name
+        if (name in self.extern_functions or name in self.functions
+                or name in self.classes):
+            self.error(f"duplicate extern function '{name}'", stmt)
+        # Unlike `define function`, an extern name may deliberately shadow
+        # a builtin (C libraries export names like `abs`); the generated
+        # wrapper replaces the builtin in the module namespace.
+        if not stmt.lib:
+            self.error(f"extern function '{name}': library name must not "
+                       f"be empty", stmt)
+        seen = set()
+        for p in stmt.params:
+            if p.name in seen:
+                self.error(f"duplicate parameter '{p.name}'", p)
+            seen.add(p.name)
+            if p.type_name not in FFI_CTYPES:
+                self.error(
+                    f"extern function '{name}': unsupported parameter type "
+                    f"'{p.type_name}' (FFI supports: "
+                    f"{', '.join(sorted(FFI_CTYPES))})", p)
+        if (stmt.return_type is not None
+                and stmt.return_type not in FFI_CTYPES):
+            self.error(
+                f"extern function '{name}': unsupported return type "
+                f"'{stmt.return_type}' (FFI supports: "
+                f"{', '.join(sorted(FFI_CTYPES))})", stmt)
+        self.extern_functions[name] = stmt
 
     # -- functions / classes --------------------------------------------------
 
@@ -178,13 +218,35 @@ class SemanticAnalyzer:
     def _check_function(self, fn):
         self._scope = _Scope(self._scope)
         self._in_function += 1
+        if fn.is_async:
+            self._in_async_function += 1
         try:
+            self._check_decorators(fn)
             self._check_params(fn.params)
             self._check_block(fn.body)
             self._check_unused(self._scope)
         finally:
             self._in_function -= 1
+            if fn.is_async:
+                self._in_async_function -= 1
             self._scope = self._scope.parent
+
+    def _check_decorators(self, fn):
+        """v0.4.0: decorator names resolve through normal scope lookup."""
+        checked = []
+        for d in fn.decorators:
+            if isinstance(d, A.Name):
+                checked.append(self._resolve_name(d))
+            elif isinstance(d, A.Call):
+                d.args = [self._check_expr(a) for a in d.args]
+                if isinstance(d.func, A.Name):
+                    d.func = self._resolve_name(d.func)
+                else:  # pragma: no cover - parser only builds Name/Call
+                    d.func = self._check_expr(d.func)
+                checked.append(d)
+            else:  # pragma: no cover - parser only builds Name/Call
+                self.error("invalid decorator", d)
+        fn.decorators = checked
 
     def _all_fields(self, cls):
         """Own fields plus inherited fields (transitive, cycle-safe)."""
@@ -228,7 +290,12 @@ class SemanticAnalyzer:
     def _check_method_like(self, fn, is_constructor):
         self._scope = _Scope(self._scope)
         self._in_function += 1
+        is_async = getattr(fn, "is_async", False)
+        if is_async:
+            self._in_async_function += 1
         try:
+            if not is_constructor:
+                self._check_decorators(fn)
             self._scope.declare("self", fn)
             self._scope.vars["self"]["assigned"] = True
             seen = {"self"}
@@ -249,6 +316,8 @@ class SemanticAnalyzer:
             self._check_unused(self._scope, skip={"self"})
         finally:
             self._in_function -= 1
+            if is_async:
+                self._in_async_function -= 1
             self._scope = self._scope.parent
 
     # -- statements ---------------------------------------------------------------
@@ -326,6 +395,15 @@ class SemanticAnalyzer:
                 self.error("'return' outside a function", s)
             if s.value is not None:
                 s.value = self._check_expr(s.value)
+        elif isinstance(s, A.YieldStmt):
+            # v0.4.0: `yield` makes the enclosing function a generator.
+            if self._in_function == 0:
+                self.error("'yield' outside a function", s)
+            if self._in_async_function > 0:
+                self.error("'yield' is not allowed in an async function "
+                           "(AGK has no async generators)", s)
+            if s.value is not None:
+                s.value = self._check_expr(s.value)
         elif isinstance(s, A.ExprStmt):
             s.expr = self._check_expr(s.expr)
         else:
@@ -344,6 +422,12 @@ class SemanticAnalyzer:
             e.right = self._check_expr(e.right)
             return e
         if isinstance(e, A.UnaryOp):
+            e.operand = self._check_expr(e.operand)
+            return e
+        if isinstance(e, A.AwaitExpr):
+            # v0.4.0: `await` only inside an async function.
+            if self._in_async_function == 0:
+                self.error("'await' outside an async function", e)
             e.operand = self._check_expr(e.operand)
             return e
         if isinstance(e, A.Call):
@@ -376,7 +460,7 @@ class SemanticAnalyzer:
             return A.Attribute(A.Name("self", line=node.line, col=node.col),
                                node.id, line=node.line, col=node.col)
         if node.id in BUILTINS or node.id in self.functions \
-                or node.id in self.classes:
+                or node.id in self.classes or node.id in self.extern_functions:
             return node
         self.error(f"undefined variable '{node.id}'{self._suggest(node.id)}",
                    node)
@@ -397,6 +481,15 @@ class SemanticAnalyzer:
         func = e.func
         if isinstance(func, A.Name):
             name = func.id
+            if name in self.extern_functions:
+                # FFI calls check arity exactly like normal functions
+                # (extern params never have defaults). Checked before
+                # BUILTINS so an extern may deliberately shadow one.
+                params = self.extern_functions[name].params
+                if len(e.args) != len(params):
+                    self._arity_error("extern function", name, params,
+                                      len(e.args), e)
+                return e
             if name in BUILTINS:
                 return e
             if name in self.functions:

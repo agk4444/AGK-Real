@@ -33,6 +33,7 @@ _ONE_CHAR_OPS = {
     ",": TokenType.COMMA,
     ":": TokenType.COLON,
     ".": TokenType.DOT,
+    "@": TokenType.AT,
 }
 
 _ESCAPES = {"n": "\n", "t": "\t", '"': '"', "\\": "\\"}

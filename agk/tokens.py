@@ -42,6 +42,12 @@ class TokenType(Enum):
     RAISE = auto()
     FROM = auto()
     STEP = auto()
+    # FFI keyword
+    EXTERN = auto()
+    # v0.4.0 keywords
+    ASYNC = auto()
+    AWAIT = auto()
+    YIELD = auto()
 
     # Literals / names
     IDENTIFIER = auto()
@@ -73,6 +79,7 @@ class TokenType(Enum):
     COMMA = auto()
     COLON = auto()
     DOT = auto()
+    AT = auto()        # @ (decorators)
 
     # Structural
     NEWLINE = auto()
@@ -119,6 +126,10 @@ KEYWORDS = {
     "raise": TokenType.RAISE,
     "from": TokenType.FROM,
     "step": TokenType.STEP,
+    "async": TokenType.ASYNC,
+    "await": TokenType.AWAIT,
+    "yield": TokenType.YIELD,
+    "extern": TokenType.EXTERN,
 }
 
 
