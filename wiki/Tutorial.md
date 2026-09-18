@@ -195,7 +195,7 @@ define function main:
     print(repeat_string("a", 2))
 ```
 
-See the [[Stdlib-Reference|standard library reference]] for all nine modules.
+See the [[Stdlib-Reference|standard library reference]] for all twelve modules.
 
 ## 10. Recursion
 

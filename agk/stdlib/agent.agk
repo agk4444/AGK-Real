@@ -1,0 +1,183 @@
+# AGK-Real standard library: LLM-backed agent helpers.
+# Import with: import agent
+# (Functions are inlined into your program; call them directly.)
+#
+# Talks to any OpenAI-compatible /chat/completions endpoint using only
+# the Python standard library (urllib). Requires an API key and network
+# access: set the AGK_LLM_API_KEY environment variable, or pass
+# api_key="...". An alternate endpoint can be set with the
+# AGK_LLM_BASE_URL environment variable or base_url="...".
+# Nothing in this module works offline.
+
+import json
+import os
+import urllib.request
+import urllib.error
+
+
+define function _api_key that takes api_key as String and returns String:
+    if api_key != "":
+        return api_key
+    create env_key as Object
+    set env_key to os.environ.get("AGK_LLM_API_KEY", "")
+    if env_key == "":
+        raise "agent: no API key - set the AGK_LLM_API_KEY environment variable or pass api_key=\"...\""
+    return env_key
+
+
+define function _base_url that takes base_url as String and returns String:
+    if base_url != "":
+        return base_url
+    create env_url as Object
+    set env_url to os.environ.get("AGK_LLM_BASE_URL", "")
+    if env_url == "":
+        return "https://api.openai.com/v1"
+    return env_url
+
+
+define function _extract_json that takes s as String and returns String:
+    create t as String
+    set t to s.strip()
+    set t to t.replace("```json", "")
+    set t to t.replace("```", "")
+    return t.strip()
+
+
+define function chat that takes messages as List, model as String = "gpt-4o-mini", api_key as String = "", base_url as String = "", timeout as Integer = 30 and returns String:
+    create key as String
+    set key to _api_key(api_key)
+    create url as String
+    set url to _base_url(base_url)
+    create payload as Object
+    set payload to {"model": model, "messages": messages}
+    create body as String
+    set body to json.dumps(payload)
+    create req as Object
+    set req to urllib.request.Request(url + "/chat/completions", body.encode("utf-8"))
+    req.add_header("Authorization", "Bearer " + key)
+    req.add_header("Content-Type", "application/json")
+    create text as String
+    set text to ""
+    # AGK has no None literal: dict.get on a missing key yields Python None,
+    # which is what urlopen expects for its data argument here (the Request
+    # already carries the body).
+    create no_data as Object
+    set no_data to {"k": 1}.get("missing")
+    try:
+        create resp as Object
+        set resp to urllib.request.urlopen(req, no_data, timeout)
+        set text to resp.read().decode("utf-8")
+        resp.close()
+    catch:
+        raise "agent.chat: request to {url} failed - check the API key, base URL and network connection"
+    create data as Object
+    set data to {}
+    try:
+        set data to json.loads(text)
+    catch:
+        raise "agent.chat: the model response was not valid JSON"
+    create content as String
+    set content to ""
+    try:
+        set content to data["choices"][0]["message"]["content"]
+    catch:
+        raise "agent.chat: unexpected response shape (missing choices[0].message.content)"
+    return content
+
+
+define function react that takes goal as String, tools as Dict, max_steps as Integer = 8, model as String = "gpt-4o-mini", api_key as String = "", base_url as String = "" and returns Object:
+    create names as Object
+    set names to []
+    for each name in tools.keys():
+        names.append(name)
+    create system as String
+    set system to "You are a reasoning agent. Your available tools: " + str(names) + ". Reply with ONLY one JSON object per turn and no other text: either {{\"tool\": \"<name>\", \"args\": {{...}}}} to call a tool, or {{\"answer\": \"...\"}} when you have the final answer."
+    create messages as Object
+    set messages to [{"role": "system", "content": system}, {"role": "user", "content": goal}]
+    create steps as Object
+    set steps to []
+    create answer as String
+    set answer to ""
+    create done as Boolean
+    set done to false
+    create step_n as Integer
+    set step_n to 0
+    create reply as String
+    set reply to ""
+    create parsed as Object
+    set parsed to {}
+    create ok as Boolean
+    set ok to true
+    create has_answer as Boolean
+    set has_answer to false
+    create ans as Object
+    set ans to ""
+    create has_tool as Boolean
+    set has_tool to false
+    create tname as Object
+    set tname to ""
+    create known as Boolean
+    set known to false
+    create tool_fn as Object
+    set tool_fn to 0
+    create args as Object
+    set args to {}
+    create observation as Object
+    set observation to ""
+    while step_n < max_steps and not done:
+        set step_n to step_n + 1
+        set reply to chat(messages, model, api_key, base_url)
+        set parsed to {}
+        set ok to true
+        try:
+            set parsed to json.loads(_extract_json(reply))
+        catch:
+            set ok to false
+        if not ok:
+            messages.append({"role": "user", "content": "That was not valid JSON. Reply with ONLY a JSON object: {{\"tool\": \"<name>\", \"args\": {{...}}}} or {{\"answer\": \"...\"}}."})
+        else:
+            set has_answer to false
+            set ans to ""
+            try:
+                set ans to parsed["answer"]
+                set has_answer to true
+            catch:
+                set has_answer to false
+            if has_answer:
+                set answer to ans
+                set done to true
+            else:
+                set has_tool to false
+                set tname to ""
+                try:
+                    set tname to parsed["tool"]
+                    set has_tool to true
+                catch:
+                    set has_tool to false
+                if not has_tool:
+                    messages.append({"role": "user", "content": "Reply with ONLY a JSON object: {{\"tool\": \"<name>\", \"args\": {{...}}}} or {{\"answer\": \"...\"}}."})
+                else:
+                    set known to false
+                    set tool_fn to 0
+                    try:
+                        set tool_fn to tools[tname]
+                        set known to true
+                    catch:
+                        set known to false
+                    if not known:
+                        messages.append({"role": "user", "content": "Unknown tool '" + str(tname) + "'. Available tools: " + str(names) + ". Reply with ONLY a JSON object."})
+                    else:
+                        set args to {}
+                        try:
+                            set args to parsed["args"]
+                        catch:
+                            set args to {}
+                        set observation to ""
+                        try:
+                            set observation to str(tool_fn(args))
+                        catch:
+                            set observation to "the tool raised an error"
+                        steps.append({"step": step_n, "tool": tname, "args": args, "observation": observation})
+                        messages.append({"role": "assistant", "content": reply})
+                        messages.append({"role": "user", "content": "Observation: " + observation})
+    return {"answer": answer, "steps": steps, "done": done, "goal": goal}

@@ -371,6 +371,9 @@ Bundled `.agk` modules, importable by name with no install step:
 | `csvutils` | `csv_parse(text)` → List of rows (each a List of strings); `csv_to_text(rows)` → String (round-trip safe) |
 | `regexutils` | `regex_match(pattern, text)` → Boolean (true if pattern found anywhere), `regex_find_all(pattern, text)` → List of matches, `regex_replace(pattern, replacement, text)` → String, `regex_split(pattern, text)` → List |
 | `sqliteutils` | `db_execute(db_path, sql)` → `"ok"` (statement executed and committed); `db_query(db_path, sql)` → List of rows (each a List of values). Each call opens, commits writes, and closes the database. |
+| `crypto` | `sha256` / `sha512` / `sha1` / `md5` → hex digests; `hmac_sha256(key, message)`; `pbkdf2_hex(password, salt, iterations)`; `base64_encode` / `base64_decode`; `token_hex(nbytes)`; `compare_digest(a, b)` (constant-time). Hashing/auth only. |
+| `graphics` | software rasterizer (stdlib only): `new(w, h, bg)`, `pixel`, `get_pixel`, `line`, `rect(..., fill=true)`, `circle(..., fill=true)`, `save_png(canvas, path)` → real PNG. Colors are `[r, g, b]` or `"#rrggbb"`; clipped drawing; no display. |
+| `agent` | `chat(messages, ...)` and `react(goal, tools, ...)` over OpenAI-compatible `/chat/completions` via `urllib`. Requires `AGK_LLM_API_KEY` + network; offline it raises a clean error. |
 
 ## 10. Explicitly out of v2
 

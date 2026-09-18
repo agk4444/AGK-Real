@@ -4,12 +4,20 @@ What changed in each release. There is no `CHANGELOG.md` in the repo; this page 
 
 **Contents**
 
-- [[Changelog#v040-current|v0.4.0]]
+- [[Changelog#v050-current|v0.5.0]]
+- [[Changelog#v040|v0.4.0]]
 - [[Changelog#v030|v0.3.0]]
 - [[Changelog#v020|v0.2.0]]
 - [[Changelog#v010|v0.1.0]]
 
-## v0.4.0 **[current]**
+## v0.5.0 **[current]**
+
+- **`crypto` stdlib module** — SHA-256/512/1 and MD5 hex digests, HMAC-SHA-256, PBKDF2-HMAC-SHA256 key derivation, base64 encode/decode, `secrets`-backed random tokens, and constant-time digest comparison. Hashing and authentication only — no public-key encryption.
+- **`graphics` stdlib module** — a pure-stdlib software rasterizer: canvases, pixels, Bresenham lines, filled/outlined rectangles and midpoint circles, with colors as `[r, g, b]` lists or `"#rrggbb"` strings. `save_png` writes a real PNG using only `struct` + `zlib` (hand-rolled IHDR/IDAT/IEND chunks with CRCs). No display, no windowing, no third-party packages; all drawing is clipped to the canvas.
+- **`agent` stdlib module** — LLM helpers over any OpenAI-compatible `/chat/completions` endpoint using only `urllib`: `chat()` for single replies and `react()` for a tool-calling ReAct loop (JSON `{"tool", "args"}` / `{"answer"}` protocol, retry on malformed output, capped steps). Requires `AGK_LLM_API_KEY` and network access; nothing here works offline.
+- **Expanded library documentation** — every stdlib module now has detailed, compile-and-run-verified examples in the wiki (28 examples across the 12 modules), plus a new [[Library-Cookbook|Library cookbook]] page with three complete programs: a `crypto` password-hashing CLI, a `graphics` generative-art PNG, and an `agent` tool-using assistant (verified offline against a mock LLM server — the wiki's example verifier now also answers POST and serves scripted response sequences).
+
+## v0.4.0
 
 - **Static type checker** — declared annotations on variables, params, and returns are verified; mismatches are compile errors with `file:line`. Unannotated code is untouched (gradual typing; `Object` is the dynamic escape hatch). Wired into `agk check`.
 - **AST optimizer** — constant folding, dead-code elimination after `return`/`raise`, and conservative dead-store removal. On by default; `agk run`/`agk build --no-opt` disables it.

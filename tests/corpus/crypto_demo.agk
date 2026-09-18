@@ -1,0 +1,10 @@
+import crypto
+
+define function main:
+    print(sha256("abc"))
+    print(md5("abc"))
+    print(hmac_sha256("key", "The quick brown fox jumps over the lazy dog"))
+    print(base64_encode("hello, agk"))
+    print(base64_decode("aGVsbG8sIGFnaw=="))
+    print(compare_digest("same", "same"))
+    print(compare_digest("same", "different"))

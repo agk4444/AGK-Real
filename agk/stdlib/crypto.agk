@@ -1,0 +1,60 @@
+# AGK-Real standard library: cryptographic helpers.
+# Import with: import crypto
+# (Functions are inlined into your program; call them directly.)
+#
+# Hashing, message authentication (HMAC), password key derivation
+# (PBKDF2), base64 and secure random tokens — built on Python's
+# hashlib / hmac / base64 / secrets. Hashing and authentication only:
+# there is no public-key encryption here.
+
+import hashlib
+import hmac
+import base64
+import secrets
+
+
+define function sha256 that takes s as String and returns String:
+    return hashlib.sha256(s.encode("utf-8")).hexdigest()
+
+
+define function sha512 that takes s as String and returns String:
+    return hashlib.sha512(s.encode("utf-8")).hexdigest()
+
+
+define function sha1 that takes s as String and returns String:
+    return hashlib.sha1(s.encode("utf-8")).hexdigest()
+
+
+define function md5 that takes s as String and returns String:
+    return hashlib.md5(s.encode("utf-8")).hexdigest()
+
+
+define function hmac_sha256 that takes key as String, message as String and returns String:
+    return hmac.new(key.encode("utf-8"), message.encode("utf-8"), hashlib.sha256).hexdigest()
+
+
+define function pbkdf2_hex that takes password as String, salt as String, iterations as Integer and returns String:
+    if iterations < 1:
+        raise "crypto.pbkdf2_hex: iterations must be at least 1"
+    return hashlib.pbkdf2_hmac("sha256", password.encode("utf-8"), salt.encode("utf-8"), iterations).hex()
+
+
+define function base64_encode that takes s as String and returns String:
+    return base64.b64encode(s.encode("utf-8")).decode("ascii")
+
+
+define function base64_decode that takes s as String and returns String:
+    try:
+        return base64.b64decode(s.encode("ascii")).decode("utf-8")
+    catch:
+        raise "crypto.base64_decode: input is not valid base64"
+
+
+define function token_hex that takes nbytes as Integer and returns String:
+    if nbytes < 1:
+        raise "crypto.token_hex: nbytes must be at least 1"
+    return secrets.token_hex(nbytes)
+
+
+define function compare_digest that takes a as String, b as String and returns Boolean:
+    return secrets.compare_digest(a.encode("utf-8"), b.encode("utf-8"))

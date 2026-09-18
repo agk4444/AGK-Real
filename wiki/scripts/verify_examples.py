@@ -20,6 +20,10 @@ Comment attributes (shlex syntax, quotes allowed):
   args="a b c"          extra argv[1:] while running
   server="static:TXT"   spin up a local HTTP server serving TXT at /,
                         replace {{PORT}} in the source with its port
+  server="seq:A|||B"    like static:, but serve payload A to the first
+                        request, B to the second, and repeat the last
+                        payload for further requests. The server answers
+                        both GET and POST (so it can mock JSON APIs).
 
 Fenced blocks WITHOUT a verify comment are ignored: 0.4.0 preview sketches
 (not yet compilable), shell/REPL transcripts, and error demos are not AGK
@@ -80,21 +84,32 @@ def extract_examples(path):
 
 
 class _StaticHandler(BaseHTTPRequestHandler):
-    payload = b""
+    payloads = [b""]
+    payload_idx = [0]
 
-    def do_GET(self):
+    def _serve(self):
+        n = _StaticHandler.payload_idx[0]
+        _StaticHandler.payload_idx[0] = n + 1
+        body = _StaticHandler.payloads[min(n, len(_StaticHandler.payloads) - 1)]
         self.send_response(200)
         self.send_header("Content-Type", "text/plain")
-        self.send_header("Content-Length", str(len(self.payload)))
+        self.send_header("Content-Length", str(len(body)))
         self.end_headers()
-        self.wfile.write(self.payload)
+        self.wfile.write(body)
+
+    def do_GET(self):
+        self._serve()
+
+    def do_POST(self):
+        self._serve()
 
     def log_message(self, *args):
         pass
 
 
-def with_local_server(payload, fn):
-    _StaticHandler.payload = payload.encode()
+def with_local_server(payloads, fn):
+    _StaticHandler.payloads = [p.encode() for p in payloads]
+    _StaticHandler.payload_idx = [0]
     server = HTTPServer(("127.0.0.1", 0), _StaticHandler)
     port = server.server_address[1]
     thread = threading.Thread(target=server.serve_forever, daemon=True)
@@ -114,19 +129,26 @@ def run_example(ex):
         os.chdir(tmpdir)
         src = ex["code"]
         server_spec = attrs.get("server")
-        if server_spec and server_spec.startswith("static:"):
-            payload = server_spec[len("static:"):]
+        if server_spec:
+            if server_spec.startswith("seq:"):
+                payloads = server_spec[len("seq:"):].split("|||")
+            elif server_spec.startswith("static:"):
+                payloads = [server_spec[len("static:"):]]
+            else:
+                payloads = None
 
-            def _run(port):
-                return run_source(src.replace("{{PORT}}", str(port)),
-                                  filename=ex["page"])
-            if attrs.get("args"):
-                sys.argv = ["prog.agk"] + attrs["args"].split()
-            try:
-                out, _ns, _w = with_local_server(payload, _run)
-            finally:
-                sys.argv = old_argv
-            return out, None
+            if payloads is not None:
+                def _run(port):
+                    return run_source(src.replace("{{PORT}}", str(port)),
+                                      filename=ex["page"])
+                if attrs.get("args"):
+                    sys.argv = ["prog.agk"] + attrs["args"].split()
+                try:
+                    out, _ns, _w = with_local_server(payloads, _run)
+                finally:
+                    sys.argv = old_argv
+                return out, None
+            # Unknown server spec: fall through to a plain run.
         if attrs.get("args"):
             sys.argv = ["prog.agk"] + attrs["args"].split()
         try:

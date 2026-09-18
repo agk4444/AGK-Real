@@ -1,0 +1,258 @@
+# AGK-Real standard library: tiny software rasterizer.
+# Import with: import graphics
+# (Functions are inlined into your program; call them directly.)
+#
+# Draw pixels, lines, rectangles and circles on an in-memory canvas,
+# then save it as a real PNG file. Pure Python standard library
+# (struct + zlib + binascii) — no display, no windowing, no
+# third-party packages.
+#
+# A canvas is a Dict: {"width": w, "height": h, "pixels": [...]},
+# where "pixels" is a flat row-major list of [r, g, b] colors.
+# Colors are [r, g, b] lists (each channel 0-255; out-of-range values
+# are clamped) or "#rrggbb" strings. All drawing is clipped to the
+# canvas bounds: out-of-range coordinates are silently skipped.
+
+import struct
+import zlib
+import binascii
+
+
+define function _to_rgb that takes color as Object and returns Object:
+    if type(color) == str:
+        create s as String
+        set s to color
+        if len(s) != 7:
+            raise "graphics: color string must look like \"#rrggbb\""
+        if s[0] != "#":
+            raise "graphics: color string must look like \"#rrggbb\""
+        create hr as Integer
+        set hr to int(s[1] + s[2], 16)
+        create hg as Integer
+        set hg to int(s[3] + s[4], 16)
+        create hb as Integer
+        set hb to int(s[5] + s[6], 16)
+        return [hr, hg, hb]
+    create r as Integer
+    set r to 0
+    create g as Integer
+    set g to 0
+    create b as Integer
+    set b to 0
+    try:
+        set r to color[0]
+        set g to color[1]
+        set b to color[2]
+    catch:
+        raise "graphics: color must be an [r, g, b] list or a \"#rrggbb\" string"
+    if r < 0:
+        set r to 0
+    if r > 255:
+        set r to 255
+    if g < 0:
+        set g to 0
+    if g > 255:
+        set g to 255
+    if b < 0:
+        set b to 0
+    if b > 255:
+        set b to 255
+    return [r, g, b]
+
+
+define function new that takes width as Integer, height as Integer, bg as Object and returns Object:
+    if width < 1 or height < 1:
+        raise "graphics.new: width and height must be at least 1"
+    create rgb as Object
+    set rgb to _to_rgb(bg)
+    create pixels as Object
+    set pixels to []
+    create n as Integer
+    set n to width * height
+    create i as Integer
+    set i to 0
+    while i < n:
+        pixels.append([rgb[0], rgb[1], rgb[2]])
+        set i to i + 1
+    return {"width": width, "height": height, "pixels": pixels}
+
+
+define function get_pixel that takes canvas as Object, x as Integer, y as Integer and returns Object:
+    create w as Integer
+    set w to canvas["width"]
+    create h as Integer
+    set h to canvas["height"]
+    if x < 0 or y < 0 or x >= w or y >= h:
+        raise "graphics.get_pixel: coordinates out of bounds"
+    create px as Object
+    set px to canvas["pixels"][y * w + x]
+    return [px[0], px[1], px[2]]
+
+
+define function pixel that takes canvas as Object, x as Integer, y as Integer, color as Object and returns Object:
+    create w as Integer
+    set w to canvas["width"]
+    create h as Integer
+    set h to canvas["height"]
+    if x < 0 or y < 0 or x >= w or y >= h:
+        return canvas
+    create px as Object
+    set px to canvas["pixels"]
+    px.__setitem__(y * w + x, _to_rgb(color))
+    return canvas
+
+
+define function line that takes canvas as Object, x1 as Integer, y1 as Integer, x2 as Integer, y2 as Integer, color as Object and returns Object:
+    create dx as Integer
+    set dx to abs(x2 - x1)
+    create dy as Integer
+    set dy to 0 - abs(y2 - y1)
+    create sx as Integer
+    set sx to 1
+    if x1 > x2:
+        set sx to -1
+    create sy as Integer
+    set sy to 1
+    if y1 > y2:
+        set sy to -1
+    create err as Integer
+    set err to dx + dy
+    create cx as Integer
+    set cx to x1
+    create cy as Integer
+    set cy to y1
+    create e2 as Integer
+    set e2 to 0
+    create done as Boolean
+    set done to false
+    while not done:
+        pixel(canvas, cx, cy, color)
+        if cx == x2 and cy == y2:
+            set done to true
+        else:
+            set e2 to 2 * err
+            if e2 >= dy:
+                set err to err + dy
+                set cx to cx + sx
+            if e2 <= dx:
+                set err to err + dx
+                set cy to cy + sy
+    return canvas
+
+
+define function _hline that takes canvas as Object, x1 as Integer, x2 as Integer, y as Integer, color as Object and returns Object:
+    create xa as Integer
+    set xa to x1
+    create xb as Integer
+    set xb to x2
+    if xa > xb:
+        set xa to x2
+        set xb to x1
+    for xx from xa to xb:
+        pixel(canvas, xx, y, color)
+    return canvas
+
+
+define function rect that takes canvas as Object, x as Integer, y as Integer, w as Integer, h as Integer, color as Object, fill as Boolean = true and returns Object:
+    if fill:
+        for yy1 from y to y + h - 1:
+            for xx1 from x to x + w - 1:
+                pixel(canvas, xx1, yy1, color)
+    else:
+        for xx2 from x to x + w - 1:
+            pixel(canvas, xx2, y, color)
+            pixel(canvas, xx2, y + h - 1, color)
+        for yy2 from y to y + h - 1:
+            pixel(canvas, x, yy2, color)
+            pixel(canvas, x + w - 1, yy2, color)
+    return canvas
+
+
+define function circle that takes canvas as Object, cx as Integer, cy as Integer, r as Integer, color as Object, fill as Boolean = true and returns Object:
+    if r < 0:
+        raise "graphics.circle: radius must be >= 0"
+    create x as Integer
+    set x to r
+    create y as Integer
+    set y to 0
+    create err as Integer
+    set err to 0
+    while x >= y:
+        if fill:
+            _hline(canvas, cx - x, cx + x, cy + y, color)
+            _hline(canvas, cx - x, cx + x, cy - y, color)
+            _hline(canvas, cx - y, cx + y, cy + x, color)
+            _hline(canvas, cx - y, cx + y, cy - x, color)
+        else:
+            pixel(canvas, cx + x, cy + y, color)
+            pixel(canvas, cx - x, cy + y, color)
+            pixel(canvas, cx + x, cy - y, color)
+            pixel(canvas, cx - x, cy - y, color)
+            pixel(canvas, cx + y, cy + x, color)
+            pixel(canvas, cx - y, cy + x, color)
+            pixel(canvas, cx + y, cy - x, color)
+            pixel(canvas, cx - y, cy - x, color)
+        set y to y + 1
+        if err <= 0:
+            set err to err + 2 * y + 1
+        else:
+            set x to x - 1
+            set err to err - 2 * x + 1
+    return canvas
+
+
+define function _png_chunk that takes ctype as String, data as Object and returns Object:
+    create sep as Object
+    set sep to "".encode()
+    create parts as Object
+    set parts to []
+    parts.append(struct.pack(">I", len(data)))
+    create t as Object
+    set t to ctype.encode("ascii")
+    parts.append(t)
+    parts.append(data)
+    create crc as Integer
+    set crc to binascii.crc32(t + data)
+    parts.append(struct.pack(">I", crc))
+    return sep.join(parts)
+
+
+define function save_png that takes canvas as Object, path as String and returns String:
+    create width as Integer
+    set width to canvas["width"]
+    create height as Integer
+    set height to canvas["height"]
+    create pixels as Object
+    set pixels to canvas["pixels"]
+    create sep as Object
+    set sep to "".encode()
+    create raw_parts as Object
+    set raw_parts to []
+    create row_parts as Object
+    set row_parts to []
+    create px as Object
+    set px to []
+    for y from 0 to height - 1:
+        set row_parts to []
+        row_parts.append(struct.pack("B", 0))
+        for x from 0 to width - 1:
+            set px to pixels[y * width + x]
+            row_parts.append(struct.pack("3B", px[0], px[1], px[2]))
+        raw_parts.append(sep.join(row_parts))
+    create raw as Object
+    set raw to sep.join(raw_parts)
+    create ihdr as Object
+    set ihdr to struct.pack(">IIBBBBB", width, height, 8, 2, 0, 0, 0)
+    create png_parts as Object
+    set png_parts to []
+    png_parts.append(struct.pack("8B", 137, 80, 78, 71, 13, 10, 26, 10))
+    png_parts.append(_png_chunk("IHDR", ihdr))
+    png_parts.append(_png_chunk("IDAT", zlib.compress(raw)))
+    png_parts.append(_png_chunk("IEND", "".encode()))
+    create png as Object
+    set png to sep.join(png_parts)
+    create f as Object
+    set f to open(path, "wb")
+    f.write(png)
+    f.close()
+    return path

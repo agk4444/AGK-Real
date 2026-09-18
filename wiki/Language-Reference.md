@@ -1,6 +1,6 @@
 # Language reference
 
-The full syntax contract for AGK-Real v0.4.0, derived from `SPEC.md` (the v2 spec). Anything not in this reference is a compile error, not a silent miscompile. Every runnable example below is compile-and-run verified.
+The full syntax contract for AGK-Real v0.5.0, derived from `SPEC.md` (the v2 spec). Anything not in this reference is a compile error, not a silent miscompile. Every runnable example below is compile-and-run verified.
 
 **Contents**
 

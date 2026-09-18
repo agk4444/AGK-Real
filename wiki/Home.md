@@ -26,10 +26,11 @@ $ agk repl                 # interactive session
 ## Explore
 
 - **[[Tutorial]]** — a guided walkthrough: your first program, variables, functions, loops, classes, errors, and the standard library.
-- **[[Language-Reference|Language reference]]** — the full syntax contract — variables, functions, classes, control flow, exceptions, interpolation, imports — plus what's new in 0.4.0.
-- **[[Stdlib-Reference|Standard library]]** — nine bundled modules: strings, lists, files, JSON, HTTP, dates, CSV, regex, and SQLite. Import by name, call directly.
+- **[[Language-Reference|Language reference]]** — the full syntax contract — variables, functions, classes, control flow, exceptions, interpolation, imports — plus what's new in 0.5.0.
+- **[[Stdlib-Reference|Standard library]]** — twelve bundled modules: strings, lists, files, JSON, HTTP, dates, CSV, regex, SQLite, crypto, graphics, and LLM agents. Import by name, call directly.
+- **[[Library-Cookbook|Library cookbook]]** — complete programs: a password-hashing CLI, generative art as PNG, and a tool-using agent.
 - **[[CLI-Reference|CLI reference]]** — every `agk` subcommand with flags and exit codes: run, build, check, test, fmt, repl — plus the LSP server.
-- **[[Changelog]]** — what changed in each release, from v0.1.0 to the current v0.4.0.
+- **[[Changelog]]** — what changed in each release, from v0.1.0 to the current v0.5.0.
 
 ## Design rules
 
@@ -44,4 +45,4 @@ $ agk repl                 # interactive session
 
 ---
 
-*AGK-Real v0.4.0 wiki.*
+*AGK-Real v0.5.0 wiki.*

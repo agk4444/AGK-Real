@@ -9,7 +9,7 @@ suite compiles each one.
 
 ## Install and run
 
-AGK-Real 0.4.0 is PyPI-ready. From the repo root:
+AGK-Real 0.5.0 is PyPI-ready. From the repo root:
 
 ```sh
 pip install .            # installs the `agk` command system-wide
@@ -509,6 +509,24 @@ pattern is found anywhere), `regex_find_all(pattern, text)`,
 returns `"ok"`), `db_query(db_path, sql)` (returns rows as a List of
 lists). Each call opens the database, commits writes, and closes it —
 no connection to manage.
+
+**crypto** — `sha256(s)`, `sha512(s)`, `sha1(s)`, `md5(s)` (hex
+digests), `hmac_sha256(key, message)`, `pbkdf2_hex(password, salt,
+iterations)`, `base64_encode(s)`, `base64_decode(s)`,
+`token_hex(nbytes)`, `compare_digest(a, b)` (constant-time). Hashing
+and authentication only — no public-key encryption.
+
+**graphics** — `new(w, h, bg)`, `pixel(canvas, x, y, color)`,
+`get_pixel(canvas, x, y)`, `line(...)`, `rect(..., fill=true)`,
+`circle(..., fill=true)`, `save_png(canvas, path)`. A pure-stdlib
+software rasterizer: colors are `[r, g, b]` lists or `"#rrggbb"`
+strings, drawing is clipped to the canvas, and `save_png` writes a
+real PNG with no third-party packages. No display or windowing.
+
+**agent** — `chat(messages, ...)` and `react(goal, tools, ...)` over
+any OpenAI-compatible `/chat/completions` endpoint (standard library
+only). Requires the `AGK_LLM_API_KEY` environment variable (or
+an explicit key) and network access; nothing here works offline.
 
 ```agk
 import csvutils
