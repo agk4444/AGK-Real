@@ -74,11 +74,7 @@
 <script>
 const SOURCES = /*__AGK_SOURCES__*/{};
 
-const SAMPLES = {
-  "hello": `define function greet that takes name as String = "World":\n    print("Hello, {name}!")\n\ndefine function main:\n    greet()\n    greet("Gopi")\n    for i from 1 to 5:\n        print("count: {i}")\n`,
-  "errors": `define function main:\n    try:\n        print(1 / 0)\n    catch err:\n        print("caught: {err}")\n    finally:\n        print("cleanup runs")\n    try:\n        raise "something broke"\n    catch:\n        print("bare catch works")\n`,
-  "stdlib": `import jsonutils\nimport dateutils\n\ndefine function main:\n    create obj as Object\n    set obj to parse_json("{{\\"a\\": 1}}")\n    print("json: {to_json(obj)}")\n    print("today: {today()}")\n    print("next week: {add_days(today(), 7)}")\n`
-};
+const SAMPLES = /*__AGK_SAMPLES__*/{};
 
 const srcEl = document.getElementById("src");
 const outEl = document.getElementById("out");
