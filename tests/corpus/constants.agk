@@ -1,0 +1,6 @@
+define constant PI as Float = 3.14159
+define constant GREETING as String = "hi"
+
+define function main:
+    print(PI * 2)
+    print(GREETING)

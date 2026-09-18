@@ -1,0 +1,32 @@
+# AGK-Real standard library: list utilities.
+# Import with: import listutils
+# (Functions are inlined into your program; call them directly.)
+
+define function sum_list that takes xs as List and returns Integer:
+    create total as Integer
+    set total to 0
+    for each x in xs:
+        set total to total + x
+    return total
+
+define function max_in_list that takes xs as List and returns Integer:
+    create best as Integer
+    set best to xs[0]
+    for each x in xs:
+        if x > best:
+            set best to x
+    return best
+
+define function min_in_list that takes xs as List and returns Integer:
+    create best as Integer
+    set best to xs[0]
+    for each x in xs:
+        if x < best:
+            set best to x
+    return best
+
+define function contains_int that takes xs as List, item as Integer and returns Boolean:
+    for each x in xs:
+        if x == item:
+            return true
+    return false

@@ -1,0 +1,11 @@
+define function main:
+    create a as Boolean
+    create b as Boolean
+    set a to true
+    set b to false
+    if a or b:
+        print("or")
+    if a and b:
+        print("and")
+    else:
+        print("not-and")

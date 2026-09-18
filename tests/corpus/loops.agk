@@ -1,0 +1,14 @@
+define function main:
+    create total as Integer
+    set total to 0
+    create xs as List
+    set xs to [1, 2, 3, 4, 5]
+    for each x in xs:
+        set total to total + x
+    print(total)
+    create i as Integer
+    set i to 3
+    while i > 0:
+        print(i)
+        set i to i - 1
+    print("done")

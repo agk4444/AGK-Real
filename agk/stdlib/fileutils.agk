@@ -1,0 +1,26 @@
+# AGK-Real standard library: file utilities.
+# Import with: import fileutils
+# (Functions are inlined into your program; call them directly.)
+
+import os
+
+define function read_text that takes path as String and returns String:
+    return open(path).read()
+
+define function write_text that takes path as String, text as String:
+    create f as Object
+    set f to open(path, "w")
+    f.write(text)
+    f.close()
+
+define function append_text that takes path as String, text as String:
+    create f as Object
+    set f to open(path, "a")
+    f.write(text)
+    f.close()
+
+define function file_exists that takes path as String and returns Boolean:
+    return os.path.exists(path)
+
+define function list_dir that takes path as String and returns List:
+    return os.listdir(path)

@@ -1,0 +1,11 @@
+define function fact that takes n as Integer and returns Integer:
+    create r as Integer
+    set r to 1
+    while n > 1:
+        set r to r * n
+        set n to n - 1
+    return r
+
+define function main:
+    print(fact(5))
+    print(fact(0))

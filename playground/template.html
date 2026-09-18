@@ -1,0 +1,217 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>AGK Playground</title>
+<style>
+  :root { color-scheme: dark; }
+  * { box-sizing: border-box; }
+  body { margin: 0; font-family: ui-monospace, SFMono-Regular, Menlo, monospace;
+         background: #0d1117; color: #e6edf3; }
+  header { padding: 12px 16px; border-bottom: 1px solid #21262d;
+           display: flex; align-items: center; gap: 12px; flex-wrap: wrap; }
+  header h1 { font-size: 18px; margin: 0; }
+  header h1 span { color: #58a6ff; }
+  header .sub { color: #8b949e; font-size: 12px; }
+  #status { margin-left: auto; font-size: 12px; color: #8b949e; }
+  #status.ready { color: #3fb950; }
+  main { display: grid; grid-template-columns: 1fr 1fr; gap: 0; height: calc(100vh - 57px); }
+  .pane { display: flex; flex-direction: column; min-width: 0; }
+  .pane + .pane { border-left: 1px solid #21262d; }
+  .toolbar { display: flex; gap: 8px; padding: 8px 12px; align-items: center;
+             border-bottom: 1px solid #21262d; flex-wrap: wrap; }
+  button { background: #238636; color: #fff; border: 0; border-radius: 6px;
+           padding: 8px 16px; font-size: 14px; cursor: pointer; font-family: inherit; }
+  button.secondary { background: #21262d; color: #e6edf3; }
+  button:disabled { opacity: .4; cursor: default; }
+  select { background: #21262d; color: #e6edf3; border: 1px solid #30363d;
+           border-radius: 6px; padding: 7px; font-family: inherit; font-size: 13px; }
+  textarea, pre { flex: 1; margin: 0; padding: 12px; background: #0d1117;
+                  color: #e6edf3; border: 0; font-size: 13px; line-height: 1.5;
+                  font-family: inherit; white-space: pre; overflow: auto; }
+  textarea { resize: none; outline: none; }
+  pre .err { color: #f85149; }
+  pre .warn { color: #d29922; }
+  pre .ok { color: #3fb950; }
+  .label { font-size: 11px; color: #8b949e; text-transform: uppercase;
+           letter-spacing: .08em; padding: 8px 12px 0; }
+  @media (max-width: 700px) {
+    main { grid-template-columns: 1fr; height: auto; }
+    .pane + .pane { border-left: 0; border-top: 1px solid #21262d; }
+    textarea, pre { min-height: 38vh; }
+  }
+</style>
+</head>
+<body>
+<header>
+  <h1>AGK <span>Playground</span></h1>
+  <div class="sub">English-like code &rarr; Python, in your browser</div>
+  <div id="status">loading python&hellip;</div>
+</header>
+<main>
+  <div class="pane">
+    <div class="toolbar">
+      <select id="samples"></select>
+      <button id="run" disabled>Run</button>
+      <button id="compile" class="secondary" disabled>Compile</button>
+    </div>
+    <div class="label">program.agk</div>
+    <textarea id="src" spellcheck="false"></textarea>
+  </div>
+  <div class="pane">
+    <div class="toolbar">
+      <select id="view">
+        <option value="output">Output</option>
+        <option value="python">Generated Python</option>
+      </select>
+    </div>
+    <div class="label" id="outlabel">output</div>
+    <pre id="out"></pre>
+  </div>
+</main>
+<script src="https://cdn.jsdelivr.net/pyodide/v0.26.4/full/pyodide.js"></script>
+<script>
+const SOURCES = /*__AGK_SOURCES__*/{};
+
+const SAMPLES = {
+  "hello": `define function greet that takes name as String = "World":\n    print("Hello, {name}!")\n\ndefine function main:\n    greet()\n    greet("Gopi")\n    for i from 1 to 5:\n        print("count: {i}")\n`,
+  "errors": `define function main:\n    try:\n        print(1 / 0)\n    catch err:\n        print("caught: {err}")\n    finally:\n        print("cleanup runs")\n    try:\n        raise "something broke"\n    catch:\n        print("bare catch works")\n`,
+  "stdlib": `import jsonutils\nimport dateutils\n\ndefine function main:\n    create obj as Object\n    set obj to parse_json("{{\\"a\\": 1}}")\n    print("json: {to_json(obj)}")\n    print("today: {today()}")\n    print("next week: {add_days(today(), 7)}")\n`
+};
+
+const srcEl = document.getElementById("src");
+const outEl = document.getElementById("out");
+const statusEl = document.getElementById("status");
+const runBtn = document.getElementById("run");
+const compileBtn = document.getElementById("compile");
+const samplesEl = document.getElementById("samples");
+const viewEl = document.getElementById("view");
+
+for (const k of Object.keys(SAMPLES)) {
+  const o = document.createElement("option");
+  o.value = k; o.textContent = k + ".agk";
+  samplesEl.appendChild(o);
+}
+samplesEl.onchange = () => { srcEl.value = SAMPLES[samplesEl.value]; };
+srcEl.value = SAMPLES.hello;
+
+let pyodide = null;
+function esc(s) {
+  return s.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+}
+function show(html) { outEl.innerHTML = html; }
+
+async function loadPyodideLib() {
+  // Primary CDN is attempted via the <script> tag in <head>. If it did
+  // not define loadPyodide (blocked/slow network), try a fallback CDN
+  // before giving up with a clear message.
+  if (typeof loadPyodide !== "undefined") return;
+  const fallbacks = [
+    "https://unpkg.com/pyodide@0.26.4/full/pyodide.js",
+    "https://cdn.jsdelivr.net/pyodide/v0.26.4/full/pyodide.js"
+  ];
+  for (const url of fallbacks) {
+    try {
+      await new Promise((resolve, reject) => {
+        const s = document.createElement("script");
+        s.src = url;
+        s.onload = resolve;
+        s.onerror = () => reject(new Error("script error"));
+        document.head.appendChild(s);
+      });
+    } catch (e) { /* try next */ }
+    if (typeof loadPyodide !== "undefined") return;
+  }
+  throw new Error("could not download Pyodide from a CDN — check your internet connection and reload");
+}
+
+async function init() {
+  try {
+    await loadPyodideLib();
+    pyodide = await loadPyodide();
+    for (const [path, content] of Object.entries(SOURCES)) {
+      const dir = path.split("/").slice(0, -1).join("/");
+      try { pyodide.FS.mkdir("/" + dir); } catch (e) { /* exists */ }
+      pyodide.FS.writeFile("/" + path, content);
+    }
+    pyodide.runPython(`
+import sys
+sys.path.insert(0, "/")
+import io, traceback
+from contextlib import redirect_stdout
+import agk.pipeline
+
+def agk_compile(src):
+    try:
+        code, warnings = agk.pipeline.compile_source(src, filename="playground.agk")
+        return {"ok": True, "code": code, "warnings": warnings}
+    except Exception as e:
+        return {"ok": False, "error": str(e)}
+
+def agk_run(src):
+    try:
+        code, warnings = agk.pipeline.compile_source(src, filename="playground.agk")
+    except Exception as e:
+        return {"ok": False, "error": str(e)}
+    ns = {"__name__": "__main__"}
+    buf = io.StringIO()
+    try:
+        with redirect_stdout(buf):
+            exec(compile(code, "playground.agk", "exec"), ns)
+    except Exception as e:
+        tb = "".join(traceback.format_exception(type(e), e, e.__traceback__))
+        return {"ok": False, "error": tb, "output": buf.getvalue()}
+    return {"ok": True, "output": buf.getvalue(), "warnings": warnings}
+`);
+    statusEl.textContent = "ready";
+    statusEl.className = "ready";
+    runBtn.disabled = false;
+    compileBtn.disabled = false;
+  } catch (e) {
+    statusEl.textContent = "failed to load: " + e;
+  }
+}
+
+function doCompile() {
+  const r = pyodide.globals.get("agk_compile")(srcEl.value).toJs({dict_converter: Object.fromEntries});
+  if (r.ok) {
+    viewEl.value = "python";
+    document.getElementById("outlabel").textContent = "generated python";
+    let html = "";
+    for (const w of r.warnings || []) html += `<span class="warn">${esc(w)}</span>\n`;
+    show(html + esc(r.code));
+  } else {
+    viewEl.value = "output";
+    document.getElementById("outlabel").textContent = "output";
+    show(`<span class="err">${esc(r.error)}</span>`);
+  }
+}
+
+function doRun() {
+  const r = pyodide.globals.get("agk_run")(srcEl.value).toJs({dict_converter: Object.fromEntries});
+  viewEl.value = "output";
+  document.getElementById("outlabel").textContent = "output";
+  let html = "";
+  const out = r.output || "";
+  if (out) html += esc(out);
+  if (r.ok) {
+    for (const w of r.warnings || []) html += `<span class="warn">${esc(w)}</span>\n`;
+    if (!html) html = '<span class="ok">(no output)</span>';
+  } else {
+    html += `<span class="err">${esc(r.error)}</span>`;
+  }
+  show(html);
+}
+
+runBtn.onclick = doRun;
+compileBtn.onclick = doCompile;
+viewEl.onchange = () => {
+  document.getElementById("outlabel").textContent =
+    viewEl.value === "python" ? "generated python" : "output";
+  if (viewEl.value === "python") doCompile();
+};
+init();
+</script>
+</body>
+</html>

@@ -1,0 +1,12 @@
+define function fib that takes n as Integer and returns Integer:
+    if n <= 1:
+        return n
+    else:
+        return fib(n - 1) + fib(n - 2)
+
+define function main:
+    create i as Integer
+    set i to 0
+    while i < 8:
+        print(fib(i))
+        set i to i + 1

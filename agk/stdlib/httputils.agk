@@ -1,0 +1,13 @@
+# AGK-Real standard library: HTTP utilities.
+# Import with: import httputils
+# (Functions are inlined into your program; call them directly.)
+
+import urllib.request
+
+define function http_get that takes url as String and returns String:
+    create resp as Object
+    set resp to urllib.request.urlopen(url)
+    create data as String
+    set data to resp.read().decode("utf-8")
+    resp.close()
+    return data

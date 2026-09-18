@@ -1,0 +1,17 @@
+# AGK-Real standard library: date utilities.
+# Import with: import dateutils
+# (Functions are inlined into your program; call them directly.)
+# Dates are "YYYY-MM-DD" strings.
+
+import datetime
+
+define function today that returns String:
+    return datetime.date.today().isoformat()
+
+define function now that returns String:
+    return datetime.datetime.now().isoformat()
+
+define function add_days that takes date_str as String, days as Integer and returns String:
+    create d as Object
+    set d to datetime.datetime.strptime(date_str, "%Y-%m-%d")
+    return (d + datetime.timedelta(days)).date().isoformat()

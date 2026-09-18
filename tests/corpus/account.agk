@@ -1,0 +1,21 @@
+define class Account:
+    variable balance as Float
+    define constructor that takes initial as Float:
+        set balance to initial
+    define function deposit that takes amount as Float:
+        set balance to balance + amount
+    define function withdraw that takes amount as Float:
+        if amount <= balance:
+            set balance to balance - amount
+        else:
+            print("insufficient funds")
+    define function get_balance that returns Float:
+        return balance
+
+define function main:
+    create a as Object
+    set a to Account(100.0)
+    a.deposit(50.0)
+    a.withdraw(30.0)
+    print(a.get_balance())
+    a.withdraw(500.0)

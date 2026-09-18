@@ -1,0 +1,7 @@
+define function main:
+    create scores as Object
+    set scores to {"amy": 95, "bob": 82}
+    print(scores["amy"])
+    create keys as List
+    set keys to ["a", "b"]
+    print(keys[1])

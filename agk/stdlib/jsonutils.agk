@@ -1,0 +1,11 @@
+# AGK-Real standard library: JSON utilities.
+# Import with: import jsonutils
+# (Functions are inlined into your program; call them directly.)
+
+import json
+
+define function parse_json that takes s as String and returns Object:
+    return json.loads(s)
+
+define function to_json that takes value as Object and returns String:
+    return json.dumps(value)

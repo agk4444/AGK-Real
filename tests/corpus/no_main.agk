@@ -1,0 +1,2 @@
+define function add that takes a as Integer, b as Integer and returns Integer:
+    return a + b

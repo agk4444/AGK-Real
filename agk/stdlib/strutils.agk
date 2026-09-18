@@ -1,0 +1,26 @@
+# AGK-Real standard library: string utilities.
+# Import with: import strutils
+# (Functions are inlined into your program; call them directly.)
+
+define function shout that takes s as String and returns String:
+    return s.upper() + "!"
+
+define function repeat_string that takes s as String, n as Integer and returns String:
+    create out as String
+    set out to ""
+    create i as Integer
+    set i to 0
+    while i < n:
+        set out to out + s
+        set i to i + 1
+    return out
+
+define function join_lines that takes lines as List and returns String:
+    create out as String
+    set out to ""
+    for each line in lines:
+        set out to out + line + "\n"
+    return out
+
+define function slug that takes s as String and returns String:
+    return s.lower().replace(" ", "-")

@@ -1,0 +1,22 @@
+[build-system]
+requires = ["setuptools>=61"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "agk-real"
+version = "0.2.0"
+description = "AGK-Real: an English-like programming language that compiles to plain Python"
+readme = "README.md"
+requires-python = ">=3.9"
+license = { text = "MIT" }
+keywords = ["language", "compiler", "english-like"]
+
+[project.scripts]
+agk = "agk.__main__:main"
+
+[tool.setuptools.packages.find]
+where = ["."]
+include = ["agk*"]
+
+[tool.setuptools.package-data]
+agk = ["stdlib/*.agk"]

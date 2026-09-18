@@ -1,0 +1,9 @@
+define function double that takes x as Integer and returns Integer:
+    return x * 2
+
+define function quad that takes x as Integer and returns Integer:
+    return double(double(x))
+
+define function main:
+    print(quad(3))
+    print(double(1 + 2))
