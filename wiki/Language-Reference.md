@@ -22,6 +22,7 @@ The full syntax contract for AGK-Real v0.6.0, derived from `SPEC.md` (the v2 spe
 - [[Code generation|Language-Reference#code-generation]]
 - [[Error format|Language-Reference#error-format]]
 - [[New in 0.4.0|Language-Reference#new-in-040]]
+- [[New in 0.6.0|Language-Reference#new-in-060]]
 - [[Explicitly out of scope|Language-Reference#explicitly-out-of-scope]]
 
 ## Program structure
