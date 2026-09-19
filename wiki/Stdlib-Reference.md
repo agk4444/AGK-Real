@@ -37,6 +37,8 @@ Twenty-seven `.agk` modules ship with the compiler (in `agk/stdlib/`). Import on
 - [[datasets|Stdlib-Reference#datasets]]
 - [[embeddings|Stdlib-Reference#embeddings]]
 - [[finetune|Stdlib-Reference#finetune]]
+- [[tensor|Stdlib-Reference#tensor]]
+- [[infer|Stdlib-Reference#infer]]
 - [[Writing your own module|Stdlib-Reference#writing-your-own-module]]
 
 Bigger end-to-end programs live on the [[Library cookbook|Library-Cookbook]] page: a password-hashing CLI, a generative-art PNG, and a tool-using agent with a mocked LLM.
@@ -933,6 +935,68 @@ import finetune
 
 define function main:
     print(ft_prepare_lm("gpt2", ["hi"]))
+```
+
+## tensor
+
+NumPy-backed n-dimensional array primitives for neural network inference: creation, shapes, matrix multiplication, elementwise math, softmax, RMSNorm, SiLU/sigmoid, row selection, stacking, seeded random sampling and `.npz` weight loading. Everything is float32. Requires `pip install numpy`; importing this module never requires it — each function raises a clear `pip install numpy` error only when called without the backend. **[experimental]**
+
+- `tensor_zeros(shape)`, `tensor_ones(shape)`, `tensor_randn(shape, seed)`, `tensor_from_list(xs)` / `tensor_to_list(t)` — create and convert
+- `tensor_shape(t)`, `tensor_numel(t)`, `tensor_reshape(t, shape)`, `tensor_transpose(t)` — shapes
+- `tensor_matmul(a, b)`, `tensor_add/sub/mul/div(a, b)`, `tensor_neg/exp/sqrt/sigmoid/silu(t)` — math
+- `tensor_sum(t)`, `tensor_sum_axis(t, axis)`, `tensor_max(t)`, `tensor_argmax(t)` — reductions
+- `tensor_take(t, idx, axis)`, `tensor_take1(t, i, axis)` — select one row (or several)
+- `tensor_stack(xs)` — stack a List of 1-D tensors into rows
+- `tensor_softmax_1d(t)`, `tensor_softmax_rows(t)` — numerically stable softmax
+- `tensor_rmsnorm(x, weight, eps)` — `x / sqrt(mean(x^2) + eps) * weight`
+- `tensor_max_abs_diff(a, b)` — largest elementwise difference, for testing
+- `tensor_seed(seed)`, `tensor_random_choice(n, probs)` — reproducible sampling
+- `tensor_load_npz(path)`, `tensor_npz_names(npz)`, `tensor_npz_get(npz, name)` — weight files
+
+<!-- verify: id=stdlib-tensor-matmul output="[[19.0, 22.0], [43.0, 50.0]]\n" -->
+```agk
+import tensor
+
+define function main:
+    create a as Object
+    set a to tensor_from_list([[1.0, 2.0], [3.0, 4.0]])
+    create b as Object
+    set b to tensor_from_list([[5.0, 6.0], [7.0, 8.0]])
+    print(tensor_to_list(tensor_matmul(a, b)))
+```
+
+## infer
+
+A real transformer inference engine in AGK: a Llama-style decoder (RMSNorm, RoPE, SwiGLU MLP) with a proper per-head KV-cache, greedy / temperature sampling and a character-level tokenizer. AGK orchestrates every step of the forward pass; the `tensor` module (NumPy) does the arithmetic. Requires `pip install numpy`. **[experimental]**
+
+Weight convention: every matrix is stored `(in_features, out_features)` and activations are row vectors, so a projection is `x @ w`.
+
+- `infer_random_model(config, seed)` — a small random model for experiments; `config` is `[n_layer, n_head, n_embd, head_dim, ffn_hidden, block_size, vocab_size]`
+- `infer_load_model(path)` — load a `.npz` saved in the `infer` layout (see `examples/tinyshakespeare/train.py`)
+- `infer_encode(model, text)` / `infer_decode(model, ids)` — character tokenizer round-trip
+- `infer_step(model, caches, tok_id, pos)` — one cached forward step, returns logits
+- `infer_new_caches(model)` — fresh per-head KV-cache
+- `infer_forward_logits(model, ids)` — logits for the last token of a prompt
+- `infer_sample(logits, temperature)` — argmax at `0.0`, sampled otherwise
+- `infer_generate(model, prompt, max_new_tokens, temperature)` — generate text
+
+<!-- verify: id=stdlib-infer-generate output="bead\nfffffg\n" -->
+```agk
+import infer
+
+define function main:
+    create model as List
+    set model to infer_random_model([1, 2, 8, 4, 16, 16, 10], 7)
+    print(infer_decode(model, infer_encode(model, "bead")))
+    print(infer_generate(model, "ab", 6, 0.0))
+```
+
+The cached incremental engine is verified against an independent full-sequence NumPy reference: identical weights produce identical logits (see `tests/test_stdlib7.py`). A trained demo lives in `examples/tinyshakespeare/` — train a tiny Shakespeare model, then talk to it from AGK:
+
+```shell
+cd examples/tinyshakespeare
+python train.py --steps 2500   # needs pip install torch numpy
+agk run demo.agk
 ```
 
 ## Writing your own module

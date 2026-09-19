@@ -1,0 +1,333 @@
+# AGK-Real standard library: a real transformer inference engine.
+# Import with: import infer
+# (Functions are inlined into your program; call them directly.)
+#
+# Runs a Llama-style decoder-only transformer (RMSNorm, RoPE, SwiGLU
+# MLP) with a proper per-head KV-cache, greedy / temperature sampling,
+# and a character-level tokenizer. AGK orchestrates every step of the
+# forward pass; the `tensor` module (NumPy) does the arithmetic.
+#
+# Weight convention: every matrix is stored (in_features, out_features)
+# and activations are row vectors, so a projection is x @ w. Token
+# vectors below are 2D rows of shape (1, n_embd).
+#
+# A model is a List with this layout:
+#   0: config List [n_layer, n_head, n_embd, head_dim, ffn_hidden, block_size, vocab_size]
+#   1: layers List; each layer is [rms1, wq, wk, wv, wo, rms2, wgate, wup, wdown]
+#   2: tok_emb (vocab, n_embd)
+#   3: rms_final (n_embd,)
+#   4: lm_head (n_embd, vocab)
+#   5: rope_cos (block_size, head_dim / 2)
+#   6: rope_sin (block_size, head_dim / 2)
+#   7: itos, a List of single-character Strings (the vocabulary)
+#
+# Load a trained model with infer_load_model, or build a small random
+# one with infer_random_model for experiments and tests.
+#
+# Nothing here is imported until you call it: importing this AGK module
+# never requires NumPy to be installed.
+#
+# Requires: pip install numpy
+
+import importlib
+import math
+import tensor
+import mathutils
+
+
+define function _infer_need_np that returns Object:
+    try:
+        return importlib.import_module("numpy")
+    catch:
+        raise "infer: this needs the 'numpy' Python package. Install it with: pip install numpy"
+
+
+define function infer_rope_tables that takes block_size as Integer, head_dim as Integer returns List:
+    create half as Integer
+    set half to int(head_dim / 2)
+    create cos_rows as List
+    set cos_rows to []
+    create sin_rows as List
+    set sin_rows to []
+    for m from 0 to block_size - 1:
+        create crow as List
+        set crow to []
+        create srow as List
+        set srow to []
+        for i from 0 to half - 1:
+            create freq as Float
+            set freq to 1.0 / power(10000.0, (2.0 * i) / (head_dim * 1.0))
+            create ang as Float
+            set ang to (m * 1.0) * freq
+            crow.append(cos_of(ang))
+            srow.append(sin_of(ang))
+        cos_rows.append(crow)
+        sin_rows.append(srow)
+    return [tensor_from_list(cos_rows), tensor_from_list(sin_rows)]
+
+
+define function infer_random_model that takes config as List, seed as Integer returns List:
+    create n_layer as Integer
+    set n_layer to config[0]
+    create n_embd as Integer
+    set n_embd to config[2]
+    create head_dim as Integer
+    set head_dim to config[3]
+    create ffn_hidden as Integer
+    set ffn_hidden to config[4]
+    create block_size as Integer
+    set block_size to config[5]
+    create vocab_size as Integer
+    set vocab_size to config[6]
+    create layers as List
+    set layers to []
+    for l from 0 to n_layer - 1:
+        create s as Integer
+        set s to seed + l * 100
+        create lw as List
+        set lw to [tensor_randn([n_embd], s + 1), tensor_randn([n_embd, n_embd], s + 2), tensor_randn([n_embd, n_embd], s + 3), tensor_randn([n_embd, n_embd], s + 4), tensor_randn([n_embd, n_embd], s + 5), tensor_randn([n_embd], s + 6), tensor_randn([n_embd, ffn_hidden], s + 7), tensor_randn([n_embd, ffn_hidden], s + 8), tensor_randn([ffn_hidden, n_embd], s + 9)]
+        layers.append(lw)
+    create tables as List
+    set tables to infer_rope_tables(block_size, head_dim)
+    create alphabet as String
+    set alphabet to "abcdefghijklmnopqrstuvwxyz0123456789 .,;:!?'-"
+    create itos as List
+    set itos to []
+    create n as Integer
+    set n to 0
+    for each ch in alphabet:
+        if n < vocab_size:
+            itos.append(ch)
+        set n to n + 1
+    return [config, layers, tensor_randn([vocab_size, n_embd], seed + 50), tensor_randn([n_embd], seed + 51), tensor_randn([n_embd, vocab_size], seed + 52), tables[0], tables[1], itos]
+
+
+define function infer_load_model that takes path as String returns List:
+    create npz as Object
+    set npz to tensor_load_npz(path)
+    create cfg_list as List
+    set cfg_list to tensor_to_list(tensor_npz_get(npz, "config"))
+    create config as List
+    set config to []
+    for each c in cfg_list:
+        config.append(int(c))
+    create n_layer as Integer
+    set n_layer to config[0]
+    create layers as List
+    set layers to []
+    for l from 0 to n_layer - 1:
+        create lw as List
+        set lw to [tensor_npz_get(npz, "layers.{l}.rms1"), tensor_npz_get(npz, "layers.{l}.wq"), tensor_npz_get(npz, "layers.{l}.wk"), tensor_npz_get(npz, "layers.{l}.wv"), tensor_npz_get(npz, "layers.{l}.wo"), tensor_npz_get(npz, "layers.{l}.rms2"), tensor_npz_get(npz, "layers.{l}.wgate"), tensor_npz_get(npz, "layers.{l}.wup"), tensor_npz_get(npz, "layers.{l}.wdown")]
+        layers.append(lw)
+    create itos as List
+    set itos to tensor_to_list(tensor_npz_get(npz, "itos"))
+    return [config, layers, tensor_npz_get(npz, "tok_emb"), tensor_npz_get(npz, "rms_final"), tensor_npz_get(npz, "lm_head"), tensor_npz_get(npz, "rope_cos"), tensor_npz_get(npz, "rope_sin"), itos]
+
+
+define function infer_new_caches that takes model as List returns List:
+    create config as List
+    set config to model[0]
+    create n_layer as Integer
+    set n_layer to config[0]
+    create n_head as Integer
+    set n_head to config[1]
+    create caches as List
+    set caches to []
+    repeat n_layer times:
+        create kh as List
+        set kh to []
+        create vh as List
+        set vh to []
+        repeat n_head times:
+            kh.append([])
+            vh.append([])
+        caches.append([kh, vh])
+    return caches
+
+
+define function infer_apply_rope that takes x as Object, cos_row as Object, sin_row as Object returns Object:
+    create xd as List
+    set xd to tensor_to_list(x)
+    create cd as List
+    set cd to tensor_to_list(cos_row)
+    create sd as List
+    set sd to tensor_to_list(sin_row)
+    create out as List
+    set out to []
+    create half as Integer
+    set half to len(cd)
+    for i from 0 to half - 1:
+        create x1 as Float
+        set x1 to xd[i * 2]
+        create x2 as Float
+        set x2 to xd[i * 2 + 1]
+        create c as Float
+        set c to cd[i]
+        create s as Float
+        set s to sd[i]
+        out.append(x1 * c - x2 * s)
+        out.append(x1 * s + x2 * c)
+    return tensor_from_list(out)
+
+
+define function infer_attention_step that takes x as Object, lw as List, layer_cache as List, pos as Integer, cos_row as Object, sin_row as Object, n_head as Integer, head_dim as Integer returns Object:
+    create q as Object
+    set q to tensor_reshape(tensor_matmul(x, lw[1]), [n_head, head_dim])
+    create k as Object
+    set k to tensor_reshape(tensor_matmul(x, lw[2]), [n_head, head_dim])
+    create v as Object
+    set v to tensor_reshape(tensor_matmul(x, lw[3]), [n_head, head_dim])
+    create outs as List
+    set outs to []
+    create scale as Float
+    set scale to 1.0 / math.sqrt(head_dim * 1.0)
+    for h from 0 to n_head - 1:
+        create qhr as Object
+        set qhr to infer_apply_rope(tensor_take1(q, h, 0), cos_row, sin_row)
+        create khr as Object
+        set khr to infer_apply_rope(tensor_take1(k, h, 0), cos_row, sin_row)
+        create vhr as Object
+        set vhr to tensor_take1(v, h, 0)
+        create klist as List
+        set klist to layer_cache[0][h]
+        klist.append(khr)
+        create vlist as List
+        set vlist to layer_cache[1][h]
+        vlist.append(vhr)
+        create kmat as Object
+        set kmat to tensor_stack(klist)
+        create vmat as Object
+        set vmat to tensor_stack(vlist)
+        create scores as Object
+        set scores to tensor_mul(tensor_matmul(tensor_reshape(qhr, [1, head_dim]), tensor_transpose(kmat)), scale)
+        create weights as Object
+        set weights to tensor_softmax_rows(scores)
+        create oh as Object
+        set oh to tensor_matmul(weights, vmat)
+        outs.append(oh)
+    create ocat as Object
+    set ocat to tensor_reshape(tensor_stack(outs), [1, n_head * head_dim])
+    return tensor_matmul(ocat, lw[4])
+
+
+define function infer_mlp_step that takes x as Object, lw as List returns Object:
+    create g as Object
+    set g to tensor_silu(tensor_matmul(x, lw[6]))
+    create u as Object
+    set u to tensor_matmul(x, lw[7])
+    return tensor_matmul(tensor_mul(g, u), lw[8])
+
+
+define function infer_step that takes model as List, caches as List, tok_id as Integer, pos as Integer returns Object:
+    create config as List
+    set config to model[0]
+    create n_layer as Integer
+    set n_layer to config[0]
+    create n_head as Integer
+    set n_head to config[1]
+    create head_dim as Integer
+    set head_dim to config[3]
+    create vocab_size as Integer
+    set vocab_size to config[6]
+    create x as Object
+    set x to tensor_reshape(tensor_take1(model[2], tok_id, 0), [1, config[2]])
+    create cos_row as Object
+    set cos_row to tensor_take1(model[5], pos, 0)
+    create sin_row as Object
+    set sin_row to tensor_take1(model[6], pos, 0)
+    for l from 0 to n_layer - 1:
+        create lw as List
+        set lw to model[1][l]
+        create att as Object
+        set att to infer_attention_step(tensor_rmsnorm(x, lw[0], 0.00001), lw, caches[l], pos, cos_row, sin_row, n_head, head_dim)
+        set x to tensor_add(x, att)
+        create mlp as Object
+        set mlp to infer_mlp_step(tensor_rmsnorm(x, lw[5], 0.00001), lw)
+        set x to tensor_add(x, mlp)
+    set x to tensor_rmsnorm(x, model[3], 0.00001)
+    return tensor_reshape(tensor_matmul(x, model[4]), [vocab_size])
+
+
+define function infer_forward_logits that takes model as List, ids as List returns Object:
+    create caches as List
+    set caches to infer_new_caches(model)
+    create pos as Integer
+    set pos to 0
+    create logits as Object
+    set logits to tensor_zeros([1])
+    for each tid in ids:
+        set logits to infer_step(model, caches, tid, pos)
+        set pos to pos + 1
+    return logits
+
+
+define function _infer_index_of that takes itos as List, ch as String returns Integer:
+    create i as Integer
+    set i to 0
+    for each c in itos:
+        if c == ch:
+            return i
+        set i to i + 1
+    return -1
+
+
+define function infer_encode that takes model as List, text as String returns List:
+    create itos as List
+    set itos to model[7]
+    create ids as List
+    set ids to []
+    for each ch in text:
+        create idx as Integer
+        set idx to _infer_index_of(itos, ch)
+        if idx == -1:
+            raise "infer_encode: character not in vocabulary: '{ch}'"
+        ids.append(idx)
+    return ids
+
+
+define function infer_decode that takes model as List, ids as List returns String:
+    create itos as List
+    set itos to model[7]
+    create out as String
+    set out to ""
+    for each i in ids:
+        set out to out + itos[i]
+    return out
+
+
+define function infer_sample that takes logits as Object, temperature as Float returns Integer:
+    if temperature <= 0.0:
+        return tensor_argmax(logits)
+    create probs as Object
+    set probs to tensor_softmax_1d(tensor_div(logits, temperature))
+    return tensor_random_choice(tensor_numel(logits), tensor_to_list(probs))
+
+
+define function infer_generate that takes model as List, prompt as String, max_new_tokens as Integer, temperature as Float returns String:
+    create config as List
+    set config to model[0]
+    create block_size as Integer
+    set block_size to config[5]
+    create ids as List
+    set ids to infer_encode(model, prompt)
+    create caches as List
+    set caches to infer_new_caches(model)
+    create pos as Integer
+    set pos to 0
+    create logits as Object
+    set logits to tensor_zeros([1])
+    for each tid in ids:
+        set logits to infer_step(model, caches, tid, pos)
+        set pos to pos + 1
+    create out_ids as List
+    set out_ids to []
+    create n as Integer
+    set n to 0
+    while n < max_new_tokens and pos < block_size:
+        create nid as Integer
+        set nid to infer_sample(logits, temperature)
+        out_ids.append(nid)
+        set logits to infer_step(model, caches, nid, pos)
+        set pos to pos + 1
+        set n to n + 1
+    return infer_decode(model, out_ids)

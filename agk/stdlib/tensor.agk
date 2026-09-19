@@ -1,0 +1,262 @@
+# AGK-Real standard library: tensor primitives for neural network inference.
+# Import with: import tensor
+# (Functions are inlined into your program; call them directly.)
+#
+# NumPy-backed n-dimensional array operations: creation, shape queries,
+# matrix multiplication, elementwise math, softmax, RMSNorm, SiLU,
+# row/column selection, stacking, random sampling and .npz weight
+# loading. Everything is float32, the standard dtype for inference.
+#
+# These are the building blocks the `infer` module uses to run a real
+# transformer: AGK orchestrates, NumPy does the arithmetic.
+#
+# Nothing here is imported until you call it: importing this AGK module
+# never requires NumPy to be installed. Every function raises a clear
+# "pip install numpy" error when it is missing.
+#
+# Requires: pip install numpy
+
+import importlib
+import math
+
+
+define function _tensor_need that returns Object:
+    try:
+        return importlib.import_module("numpy")
+    catch:
+        raise "tensor: this needs the 'numpy' Python package. Install it with: pip install numpy"
+
+
+define function tensor_zeros that takes shape as List returns Object:
+    create np as Object
+    set np to _tensor_need()
+    return np.zeros(shape, np.float32)
+
+
+define function tensor_ones that takes shape as List returns Object:
+    create np as Object
+    set np to _tensor_need()
+    return np.ones(shape, np.float32)
+
+
+define function tensor_randn that takes shape as List, seed as Integer returns Object:
+    create np as Object
+    set np to _tensor_need()
+    np.random.seed(seed)
+    create total as Integer
+    set total to 1
+    for each d in shape:
+        set total to total * d
+    create flat as Object
+    set flat to np.random.standard_normal(total)
+    return np.reshape(flat, shape)
+
+
+define function tensor_from_list that takes xs as List returns Object:
+    create np as Object
+    set np to _tensor_need()
+    return np.array(xs, np.float32)
+
+
+define function tensor_to_list that takes t as Object returns List:
+    return t.tolist()
+
+
+define function tensor_shape that takes t as Object returns List:
+    create out as List
+    set out to []
+    for each d in t.shape:
+        out.append(int(d))
+    return out
+
+
+define function tensor_numel that takes t as Object returns Integer:
+    create n as Integer
+    set n to 1
+    for each d in tensor_shape(t):
+        set n to n * d
+    return n
+
+
+define function tensor_reshape that takes t as Object, shape as List returns Object:
+    create np as Object
+    set np to _tensor_need()
+    return np.reshape(t, shape)
+
+
+define function tensor_transpose that takes t as Object returns Object:
+    create np as Object
+    set np to _tensor_need()
+    return np.transpose(t)
+
+
+define function tensor_matmul that takes a as Object, b as Object returns Object:
+    create np as Object
+    set np to _tensor_need()
+    return np.matmul(a, b)
+
+
+define function tensor_add that takes a as Object, b as Object returns Object:
+    create np as Object
+    set np to _tensor_need()
+    return np.add(a, b)
+
+
+define function tensor_sub that takes a as Object, b as Object returns Object:
+    create np as Object
+    set np to _tensor_need()
+    return np.subtract(a, b)
+
+
+define function tensor_mul that takes a as Object, b as Object returns Object:
+    create np as Object
+    set np to _tensor_need()
+    return np.multiply(a, b)
+
+
+define function tensor_div that takes a as Object, b as Object returns Object:
+    create np as Object
+    set np to _tensor_need()
+    return np.divide(a, b)
+
+
+define function tensor_neg that takes t as Object returns Object:
+    create np as Object
+    set np to _tensor_need()
+    return np.negative(t)
+
+
+define function tensor_exp that takes t as Object returns Object:
+    create np as Object
+    set np to _tensor_need()
+    return np.exp(t)
+
+
+define function tensor_sqrt that takes t as Object returns Object:
+    create np as Object
+    set np to _tensor_need()
+    return np.sqrt(t)
+
+
+define function tensor_sum that takes t as Object returns Float:
+    create np as Object
+    set np to _tensor_need()
+    return float(np.sum(t))
+
+
+define function tensor_sum_axis that takes t as Object, axis as Integer returns Object:
+    create np as Object
+    set np to _tensor_need()
+    return np.sum(t, axis)
+
+
+define function tensor_max that takes t as Object returns Float:
+    create np as Object
+    set np to _tensor_need()
+    return float(np.max(t))
+
+
+define function tensor_argmax that takes t as Object returns Integer:
+    create np as Object
+    set np to _tensor_need()
+    return int(np.argmax(t))
+
+
+define function tensor_take that takes t as Object, idx as List, axis as Integer returns Object:
+    create np as Object
+    set np to _tensor_need()
+    return np.take(t, idx, axis)
+
+
+define function tensor_take1 that takes t as Object, i as Integer, axis as Integer returns Object:
+    create np as Object
+    set np to _tensor_need()
+    return np.take(t, i, axis)
+
+
+define function tensor_stack that takes xs as List returns Object:
+    create np as Object
+    set np to _tensor_need()
+    return np.stack(xs, 0)
+
+
+define function tensor_softmax_1d that takes t as Object returns Object:
+    create e as Object
+    set e to tensor_exp(tensor_sub(t, tensor_max(t)))
+    return tensor_div(e, tensor_sum(e))
+
+
+define function tensor_softmax_rows that takes t as Object returns Object:
+    create e as Object
+    set e to tensor_exp(tensor_sub(t, tensor_max(t)))
+    create s as Object
+    set s to tensor_sum_axis(e, 1)
+    create sh as List
+    set sh to tensor_shape(e)
+    create s2 as Object
+    set s2 to tensor_reshape(s, [sh[0], 1])
+    return tensor_div(e, s2)
+
+
+define function tensor_rmsnorm that takes x as Object, weight as Object, eps as Float returns Object:
+    create ms as Float
+    set ms to tensor_sum(tensor_mul(x, x)) / (tensor_numel(x) * 1.0)
+    create r as Float
+    set r to math.sqrt(ms + eps)
+    return tensor_div(tensor_mul(x, weight), r)
+
+
+define function tensor_sigmoid that takes t as Object returns Object:
+    return tensor_div(1.0, tensor_add(1.0, tensor_exp(tensor_neg(t))))
+
+
+define function tensor_silu that takes t as Object returns Object:
+    return tensor_mul(t, tensor_sigmoid(t))
+
+
+define function tensor_max_abs_diff that takes a as Object, b as Object returns Float:
+    create np as Object
+    set np to _tensor_need()
+    return float(np.max(np.abs(np.subtract(a, b))))
+
+
+define function tensor_seed that takes seed as Integer:
+    create np as Object
+    set np to _tensor_need()
+    np.random.seed(seed)
+
+
+define function tensor_random_choice that takes n as Integer, probs as List returns Integer:
+    create np as Object
+    set np to _tensor_need()
+    create total as Float
+    set total to 0.0
+    for each p in probs:
+        set total to total + p
+    create normed as List
+    set normed to []
+    for each p in probs:
+        normed.append(p / total)
+    create r as Object
+    set r to np.random.choice(n, 1, true, normed)
+    return int(r[0])
+
+
+define function tensor_load_npz that takes path as String returns Object:
+    create np as Object
+    set np to _tensor_need()
+    try:
+        return np.load(path)
+    catch:
+        raise "tensor: could not load weights file '{path}'"
+
+
+define function tensor_npz_names that takes npz as Object returns List:
+    return npz.files
+
+
+define function tensor_npz_get that takes npz as Object, name as String returns Object:
+    try:
+        return npz[name]
+    catch:
+        raise "tensor: weights file has no array named '{name}'"

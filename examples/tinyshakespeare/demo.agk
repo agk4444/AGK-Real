@@ -1,0 +1,36 @@
+# demo.agk — talk to a tiny Shakespeare transformer, run entirely by AGK.
+#
+# Run it from this directory:
+#   cd examples/tinyshakespeare
+#   agk run demo.agk
+#
+# The model (weights.npz, trained by train.py) is a 3-layer Llama-style
+# transformer. AGK's `infer` module runs the whole forward pass —
+# token by token, with a real KV-cache — orchestrated in plain AGK.
+
+import infer
+import tensor
+
+
+define function main:
+    say "Loading the tiny Shakespeare model..."
+    create model as List
+    set model to infer_load_model("weights.npz")
+    create cfg as List
+    set cfg to model[0]
+    say "Model ready: {cfg[0]} layers, vocab {cfg[6]} chars."
+    say "Type a prompt and I will continue it in Shakespeare-ish. Type quit to stop."
+    tensor_seed(7)
+    create done as Boolean
+    set done to false
+    while not done:
+        ask "prompt> " giving prompt
+        if prompt == "quit":
+            set done to true
+        otherwise:
+            create out as String
+            set out to infer_generate(model, prompt, 120, 0.8)
+            say ""
+            say out
+            say ""
+    say "Farewell!"

@@ -43,7 +43,7 @@ Also in: static type checker, optimizer (constant folding, dead-code and
 dead-store elimination), debugger (`agk debug`), test runner
 (`agk test`), formatter (`agk fmt`), package manager (`agk pkg`),
 LSP server, `.agk` module imports, exceptions, string interpolation,
-async/await, generators, decorators, FFI (`extern`), and thirty-three bundled
+async/await, generators, decorators, FFI (`extern`), and thirty-five bundled
 stdlib modules: `strutils`, `listutils`, `fileutils`, `jsonutils`,
 `httputils`, `dateutils`, `csvutils`, `regexutils`, `sqliteutils`,
 `crypto`, `graphics`, `agent`, `mathutils`, `randutils`, `timeutils`,
