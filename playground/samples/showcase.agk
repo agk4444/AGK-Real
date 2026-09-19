@@ -1,0 +1,21 @@
+to describe with n:
+    if n is 1:
+        say "one thing"
+    otherwise if n is greater than 1:
+        say "{n} things"
+    otherwise:
+        say "nothing"
+
+to main:
+    total is 0
+    repeat 5 times:
+        increase total by 2
+    say "total: {total}"
+    decrease total
+    if total is less than or equal to 10:
+        say "within budget"
+    if total is not 0:
+        say "nonzero"
+    if total is greater than or equal to 9:
+        say "at least nine"
+    describe(total)

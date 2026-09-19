@@ -1,0 +1,9 @@
+to double with n:
+    return n * 2
+
+to add with a, b:
+    return a + b
+
+to main:
+    say double(21)
+    say add(3, 4)

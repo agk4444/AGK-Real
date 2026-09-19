@@ -1,0 +1,6 @@
+to main:
+    name is "Gopi"
+    score is 0
+    score is score + 10
+    say name
+    say score

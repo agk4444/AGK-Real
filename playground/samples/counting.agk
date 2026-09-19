@@ -1,0 +1,10 @@
+to main:
+    n is 10
+    increase n
+    say n
+    increase n by 5
+    say n
+    decrease n by 6
+    say n
+    decrease n
+    say n

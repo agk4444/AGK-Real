@@ -4,9 +4,10 @@ Embeds the whole `agk` package (compiler + stdlib .agk files) as JSON so
 the page can write them into Pyodide's virtual filesystem and compile +
 run AGK entirely in the browser. No server needed.
 
-The sample dropdown is generated from tests/corpus/*.agk. Every sample is
-compile-and-run verified against its .expected file at build time, so a
-broken example can never ship in the playground.
+The sample dropdown is generated from playground/samples/*.agk — every
+sample is written in Simple AGK. Each sample is compile-and-run verified
+against its .expected file at build time, so a broken example can never
+ship in the playground.
 
 Usage:  python playground/build.py   ->  playground/agk-playground.html
 """
@@ -20,17 +21,17 @@ from pathlib import Path
 ROOT = Path(__file__).parent.parent
 TEMPLATE = Path(__file__).parent / "template.html"
 OUT = Path(__file__).parent / "agk-playground.html"
-CORPUS = ROOT / "tests" / "corpus"
+SAMPLES = Path(__file__).parent / "samples"
 
 # Showcased first, then the rest alphabetically.
-FIRST = ["hello", "simple_showcase"]
+FIRST = ["hello", "showcase"]
 
 
 def load_samples():
     sys.path.insert(0, str(ROOT))
     from agk.pipeline import compile_source
 
-    progs = sorted(CORPUS.glob("*.agk"), key=lambda p: p.stem)
+    progs = sorted(SAMPLES.glob("*.agk"), key=lambda p: p.stem)
     progs.sort(key=lambda p: (FIRST.index(p.stem) if p.stem in FIRST else len(FIRST), p.stem))
 
     samples = {}

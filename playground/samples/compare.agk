@@ -1,0 +1,7 @@
+to main:
+    say 3 is 3
+    say 3 is not 4
+    say 5 is greater than 2
+    say 2 is less than 5
+    say 4 is greater than or equal to 4
+    say 3 is less than or equal to 2
