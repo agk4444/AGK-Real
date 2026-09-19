@@ -633,6 +633,141 @@ At statement start, `x is <expr>` declares or assigns — except when the
 tail reads as a comparison (`x is not 5`, `x is greater than 5`),
 which is an expression statement.
 
+## New in 0.7.0
+
+Simple AGK now covers every classic construct: classes, constants,
+`each`/`for` loops, `async`, default parameter values, and FFI
+declarations all have a plain-English spelling. Classic and simple
+members may be mixed freely in one class body, and everything below
+desugars to the same AST as its classic twin.
+
+### Simple classes
+
+<!-- verify: id=ref-simple-class output="rex woof\n" -->
+```agk
+class Dog:
+    name as String
+    constructor with n as String:
+        set name to n
+    to bark:
+        return name + " woof"
+
+to main:
+    d is Dog("rex")
+    say d.bark()
+```
+
+`class <Name> [extends <Base>]:` replaces `define class`. Fields are
+`<name> as <Type>`, the constructor is `constructor [with <params>]:`,
+and methods use the plain `to` form (including `async to`). Inside
+methods, bare field names are rewritten to `self.<field>` exactly as
+in the classic form.
+
+<!-- verify: id=ref-simple-extends output="22\n" -->
+```agk
+class Counter:
+    n as Integer
+    constructor:
+        set n to 0
+    to bump:
+        set n to n + 1
+    to value:
+        return n
+
+class LoudCounter extends Counter:
+    to value:
+        return n * 10 + 2
+
+to main:
+    c is LoudCounter()
+    c.bump()
+    c.bump()
+    say c.value()
+```
+
+### Simple constants
+
+<!-- verify: id=ref-simple-constant output="6.28\n" -->
+```agk
+constant Pi is 3.14
+
+to main:
+    say Pi * 2
+```
+
+`constant <NAME> is <literal>` infers the type (`Integer`, `Float`,
+`String`, or `Boolean`) from the literal; only a single literal is
+allowed.
+
+### Simple loops
+
+<!-- verify: id=ref-simple-each output="6\n" -->
+```agk
+to main:
+    total is 0
+    each n in [1, 2, 3]:
+        increase total by n
+    say total
+```
+
+`each <name> in <expr>:` is `for each <name> in <expr>:`.
+
+<!-- verify: id=ref-simple-repeat-with output="1\n2\n3\n10\n7\n4\n1\n" -->
+```agk
+to main:
+    repeat with i from 1 to 3:
+        say i
+    repeat with j from 10 to 1 step -3:
+        say j
+```
+
+`repeat with <name> from <a> to <b> [step <s>]:` is the inclusive
+`for` range loop. The plain `repeat <expr> times:` form is unchanged.
+
+### `async to` and default values
+
+<!-- verify: id=ref-simple-async output="got x\n" -->
+```agk
+async to fetch with url as String:
+    return "got " + url
+
+async to main:
+    say await fetch("x")
+```
+
+`async to <name> [with <params>]:` is `define async function`, usable
+at top level and as a class method. `await` works as before.
+
+<!-- verify: id=ref-simple-defaults output="hi World\nhi Gopi\n" -->
+```agk
+to greet with name = "World":
+    return "hi " + name
+
+to main:
+    say greet()
+    say greet("Gopi")
+```
+
+Parameters in a `to` declaration may carry `= <literal>` defaults,
+with or without `as <Type>` (`to greet with name as String = "World":`
+also works).
+
+### Simple FFI
+
+<!-- verify: id=ref-simple-use output="5\n" -->
+```agk
+use strlen with s as String and returns Integer from "c"
+
+to main:
+    say strlen("hello")
+```
+
+`use <name> [with <params>] [and returns <Type>] from "<lib>"` is the
+`extern` declaration: `with` introduces the parameter list, `and
+returns <Type>` the return type (default `Void`), and `from "<lib>"`
+the shared library (FFI defaults are not allowed, as in the classic
+form).
+
 ## Explicitly out of scope
 
 Each of these is a clean parse error if attempted:

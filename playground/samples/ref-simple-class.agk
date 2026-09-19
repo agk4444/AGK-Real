@@ -1,0 +1,10 @@
+class Dog:
+    name as String
+    constructor with n as String:
+        set name to n
+    to bark:
+        return name + " woof"
+
+to main:
+    d is Dog("rex")
+    say d.bark()

@@ -1,0 +1,6 @@
+to greet with name = "World":
+    return "hi " + name
+
+to main:
+    say greet()
+    say greet("Gopi")

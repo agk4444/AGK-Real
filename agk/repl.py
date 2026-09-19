@@ -148,7 +148,11 @@ class Session:
             return True
         if stripped in ("exit", "quit"):
             return False
-        if stripped.split()[0] in ("define", "class", "import"):
+        if stripped.split()[0] in ("define", "class", "import",
+                                     "constant", "use", "async"):
+            # v0.7.0 (Simple AGK): the simple top-level forms (`constant`,
+            # `use`, `async to`) parse as top-level declarations, just like
+            # their classic twins — never as wrapped function statements.
             self.run_program(chunk)
             return True
         if _looks_like_simple_statement(chunk):

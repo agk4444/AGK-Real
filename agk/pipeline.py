@@ -269,7 +269,7 @@ CACHE_DIR_NAME = ".agkcache"
 CACHE_FORMAT = 1
 # Keep in sync with pyproject.toml. Any compiler change must invalidate
 # previously cached codegen, so the version salts every fingerprint.
-COMPILER_VERSION = "0.6.0"
+COMPILER_VERSION = "0.7.0"
 
 _MANIFEST_NAME = "manifest.json"
 

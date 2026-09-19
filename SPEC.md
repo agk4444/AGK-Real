@@ -381,7 +381,7 @@ Multi-target codegen (JS/Kotlin/…), ternary `?:`,
 `implements`, slices, comprehensions, operator overloading, lambdas.
 Each is a clean parse error if attempted.
 
-## 11. Simple AGK surface (v0.6.0)
+## 11. Simple AGK surface (v0.6.0; complete coverage in v0.7.0, §11.8)
 
 A beginner-friendly alias layer over the statements in §4. Every form
 desugars to an existing construct during parsing, so name resolution
@@ -521,3 +521,38 @@ hi
 hi
 hi
 ```
+
+### 11.8 Complete coverage (v0.7.0)
+
+Simple AGK now covers every classic construct, so a whole program can
+be written without ceremony. New forms:
+
+```
+class <Name> [extends <Base>]:          # was: define class
+    <name> as <Type>                    # was: variable <name> as <Type>
+    constructor [with <params>]:         # was: define constructor that takes ...
+    to <method> [with <params>]:        # (already simple, §11.6)
+    async to <method> [with <params>]:   # was: define async function (in class)
+
+constant <NAME> is <literal>            # was: define constant <NAME> as <T> = ...
+
+each <name> in <expr>:                  # was: for each <name> in <expr>:
+repeat with <name> from <a> to <b> [step <s>]:   # was: for <name> from ...
+
+async to <name> [with <params>]:        # was: define async function
+
+to <name> with <p> as <Type> = <lit>:   # default values, with or without `as`
+to <name> with <p> = <lit>:
+
+use <name> [with <params>] [and returns <Type>] from "<lib>"   # was: extern
+```
+
+Classic and simple members may be mixed freely in one class body.
+`class`, `constructor`, `constant` and `async` were already reserved
+words; `each` was already reserved; `use` and `with` stay ordinary
+identifiers, special only in these statement patterns. A variable named
+`with` keeps its old meaning in `repeat with times:` (the `repeat with
+<name> from` form requires the word `from` after the loop variable).
+
+Already plain and unchanged: `if`, `while`, `return`, `import`,
+`raise`, `yield`, `await`, `try`/`catch`/`finally`, decorators.

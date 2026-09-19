@@ -1,0 +1,5 @@
+to main:
+    repeat with i from 1 to 3:
+        say i
+    repeat with j from 10 to 1 step -3:
+        say j

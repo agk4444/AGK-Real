@@ -4,14 +4,29 @@ What changed in each release. There is no `CHANGELOG.md` in the repo; this page 
 
 **Contents**
 
-- [[v0.6.0|Changelog#v060-current]]
+- [[v0.7.0|Changelog#v070-current]]
+- [[v0.6.0|Changelog#v060]]
 - [[v0.5.0|Changelog#v050]]
 - [[v0.4.0|Changelog#v040]]
 - [[v0.3.0|Changelog#v030]]
 - [[v0.2.0|Changelog#v020]]
 - [[v0.1.0|Changelog#v010]]
 
-## v0.6.0 **[current]**
+## v0.7.0 **[current]**
+
+- **Simple AGK complete** — every classic construct now has a plain-English spelling, so whole programs can be written without ceremony. New forms, all desugared at parse time to the existing AST (semantics and codegen unchanged, all previously valid programs keep their meaning):
+  - `class <Name> [extends <Base>]:` — alias for `define class`; fields are `<name> as <Type>`; the constructor is `constructor [with <params>]:`; methods use the plain `to` form (including `async to`). Classic and simple members may be mixed freely in one class body.
+  - `constant <NAME> is <literal>` — alias for `define constant`, with the type inferred from the literal.
+  - `each <name> in <expr>:` — alias for `for each`.
+  - `repeat with <name> from <a> to <b> [step <s>]:` — the inclusive `for` range loop (the plain `repeat <expr> times:` form is unchanged).
+  - `async to <name> [with <params>]:` — alias for `define async function`, at top level and in class bodies.
+  - Default parameter values in `to` declarations: `to greet with name as String = "World":` (the type may be omitted).
+  - `use <name> [with <params>] [and returns <Type>] from "<lib>"` — the simple `extern` FFI declaration.
+- **Still no new reserved words** — `class`, `constructor`, `constant`, `async`, and `each` were already reserved; `use` and `with` stay ordinary identifiers, special only in these statement patterns.
+- 8 new verified wiki examples in [[Language Reference|Language-Reference]]; 26 new parser/semantic/runtime tests.
+- Version bumped to 0.7.0.
+
+## v0.6.0
 
 - **New stdlib modules (inference)** — `tensor` (NumPy-backed n-dimensional array primitives: creation, matmul, elementwise math, softmax, RMSNorm, SiLU, slicing, seeded sampling, `.npz` weight loading) and `infer` (a real transformer inference engine in AGK: Llama-style decoder with RMSNorm, RoPE and SwiGLU, per-head KV-cache, greedy/temperature sampling, character tokenizer). The cached incremental engine is verified bit-close against an independent full-sequence NumPy reference on identical weights (`tests/test_stdlib7.py`). `examples/tinyshakespeare/` trains a tiny Shakespeare model (`train.py`) and talks to it from AGK (`demo.agk`). Both modules lazy-load NumPy and raise a clear `pip install numpy` error when it is missing. 35 bundled modules total.
 - **New stdlib modules (LLM)** — `transformers` (HF pipelines, generation, tokenization, model download), `tokenizer` (token counting, truncation, chunking, tiktoken), `torchutils` (tensor ops), `datasets` (HF datasets), `embeddings` (sentence-transformers + semantic search), `finetune` (peft LoRA training, adapter merge). All six load their Python backends lazily via `importlib` and raise a clear `pip install ...` error when a package is missing; nothing is imported at module-import time. 33 bundled modules total.

@@ -67,9 +67,29 @@ class Parser:
             elif self.check(T.TO):
                 # v0.6.0 (Simple AGK): `to <name> ...:` at top level.
                 statements.append(self.parse_to_function_def())
+            elif self.check(T.CLASS):
+                # v0.7.0 (Simple AGK): `class <Name> [extends <Base>]:`.
+                statements.append(self.parse_simple_class_def())
+            elif self.check(T.CONSTANT):
+                # v0.7.0 (Simple AGK): `constant <NAME> is <literal>`.
+                statements.append(self.parse_simple_constant_def())
+            elif self.check(T.ASYNC):
+                # v0.7.0 (Simple AGK): `async to <name> ...:`.
+                if self._peek_is(T.TO, 1):
+                    self.advance()  # 'async'
+                    statements.append(self.parse_to_function_def(is_async=True))
+                else:
+                    self.error(f"unexpected {self.peek().value!r} at top level; "
+                               f"expected 'import', 'define', 'extern', 'to', "
+                               f"'class', 'constant', or 'use'")
+            elif (self.check(T.IDENTIFIER) and self.peek().value == "use"
+                    and self._peek_is(T.IDENTIFIER, 1)):
+                # v0.7.0 (Simple AGK): `use <name> ... from "<lib>"` (FFI).
+                statements.append(self.parse_simple_use_def())
             else:
                 self.error(f"unexpected {self.peek().value!r} at top level; "
-                           f"expected 'import', 'define', or 'extern'")
+                           f"expected 'import', 'define', 'extern', 'to', "
+                           f"'class', 'constant', or 'use'")
             self._skip_newlines()
         return A.Program(statements)
 
@@ -228,6 +248,31 @@ class Parser:
         return A.ExternDef(name_tok.value, params, return_type, lib_tok.value,
                            line=ext.line, col=ext.column)
 
+    def parse_simple_use_def(self):
+        """v0.7.0 (Simple AGK): `use <name> [with <params>]
+        [and returns <Type>] from "<lib>"` — drops the `extern function`
+        ceremony from an FFI declaration. The `use` word was just matched
+        as a plain identifier."""
+        kw = self.advance()  # 'use'
+        name_tok = self.expect(T.IDENTIFIER,
+                               "expected function name after 'use'")
+        params = []
+        if self._peek_is_word(0, "with"):
+            self.advance()
+            params = self._parse_simple_params(allow_defaults=False)
+        return_type = None
+        if self.match(T.AND):
+            self.expect(T.RETURNS, "expected 'returns' after 'and'")
+            return_type = self.expect(T.IDENTIFIER,
+                                      "expected return type name").value
+        self.expect(T.FROM,
+                    "expected 'from \"<library>\"' after use signature")
+        lib_tok = self.expect(T.STRING,
+                              "expected library name in quotes after 'from'")
+        self.expect(T.NEWLINE, "expected end of line after use declaration")
+        return A.ExternDef(name_tok.value, params, return_type, lib_tok.value,
+                           line=kw.line, col=kw.column)
+
     def parse_constant_def(self):
         cnst = self.expect(T.CONSTANT, "expected 'constant'")
         name = self.expect(T.IDENTIFIER, "expected constant name")
@@ -243,6 +288,25 @@ class Parser:
         return A.ConstantDef(name.value, type_name.value, value,
                              line=cnst.line, col=cnst.column)
 
+    def parse_simple_constant_def(self):
+        """v0.7.0 (Simple AGK): `constant <NAME> is <literal>` — drops the
+        `define` and the explicit type (inferred from the literal) from
+        `define constant <NAME> as <Type> = <literal>`."""
+        kw = self.expect(T.CONSTANT, "expected 'constant'")
+        name = self.expect(T.IDENTIFIER, "expected constant name")
+        g = self.peek()
+        if not (g.type == T.IDENTIFIER and g.value == "is"):
+            self.error("expected 'is' in constant definition "
+                       "(`constant <NAME> is <value>`)", g)
+        self.advance()  # 'is'
+        value = self.parse_primary()
+        if (not isinstance(value, (A.IntLit, A.FloatLit, A.StringLit, A.BoolLit))
+                or not self.check(T.NEWLINE)):
+            self.error("constant value must be a single literal")
+        self.expect(T.NEWLINE, "expected end of line after constant definition")
+        return A.ConstantDef(name.value, self._infer_simple_type(value), value,
+                             line=kw.line, col=kw.column)
+
     def parse_class_def(self):
         cls = self.expect(T.CLASS, "expected 'class'")
         name = self.expect(T.IDENTIFIER, "expected class name")
@@ -253,14 +317,44 @@ class Parser:
             self.error("'implements' is not supported in v1")
         self.expect(T.COLON, "expected ':' after class header")
         self.expect(T.NEWLINE, "expected end of line after class header")
-        self.expect(T.INDENT, "expected indented class body")
+        fields, methods, constructor = self._parse_class_body()
+        return A.ClassDef(name.value, base, fields, constructor, methods,
+                          line=cls.line, col=cls.column)
 
+    def parse_simple_class_def(self):
+        """v0.7.0 (Simple AGK): `class <Name> [extends <Base>]:` — drops
+        the `define` ceremony from `define class`."""
+        kw = self.expect(T.CLASS, "expected 'class'")
+        name = self.expect(T.IDENTIFIER, "expected class name after 'class'")
+        base = None
+        if self.match(T.EXTENDS):
+            base = self.expect(T.IDENTIFIER, "expected base class name").value
+        if self.match(T.IMPLEMENTS):
+            self.error("'implements' is not supported in v1")
+        self.expect(T.COLON, "expected ':' after class header")
+        self.expect(T.NEWLINE, "expected end of line after class header")
+        fields, methods, constructor = self._parse_class_body()
+        return A.ClassDef(name.value, base, fields, constructor, methods,
+                          line=kw.line, col=kw.column)
+
+    def _parse_class_body(self):
+        """Member loop shared by `define class` and simple `class` bodies.
+
+        Accepts classic members (`variable`, `define constructor`,
+        `define function`) and the Simple AGK member forms (`<name> as
+        <Type>` fields, `constructor [with ...]:`, `to ...:` methods,
+        `async to ...:` methods).
+        """
+        self.expect(T.INDENT, "expected indented class body")
         fields, methods, constructor = [], [], None
         while not self.check(T.DEDENT, T.EOF):
             if self.match(T.NEWLINE):
                 continue
             if self.match(T.VARIABLE):
                 fields.append(self._parse_field())
+            elif self.check(T.IDENTIFIER) and self._peek_is(T.AS, 1):
+                # v0.7.0 (Simple AGK): `<name> as <Type>` field declaration.
+                fields.append(self._parse_simple_field(self.advance()))
             elif self.check(T.DEFINE, T.AT):
                 decorators = self.parse_decorators()
                 defn = self.expect(T.DEFINE, "expected 'define'")
@@ -280,15 +374,47 @@ class Parser:
                 else:
                     self.error("expected 'constructor' or 'function' "
                                "after 'define' in class body", defn)
+            elif self.check(T.CONSTRUCTOR):
+                # v0.7.0 (Simple AGK): `constructor [with <params>]:`.
+                if constructor is not None:
+                    self.error("duplicate constructor", self.peek())
+                self.advance()
+                constructor = self._parse_simple_constructor()
             elif self.check(T.TO):
                 # v0.6.0 (Simple AGK): `to <name> ...:` as a method.
                 methods.append(self.parse_to_function_def())
+            elif self.check(T.ASYNC) and self._peek_is(T.TO, 1):
+                # v0.7.0 (Simple AGK): `async to <name> ...:` as a method.
+                self.advance()  # 'async'
+                methods.append(self.parse_to_function_def(is_async=True))
             else:
                 self.error("expected 'variable', 'define constructor', "
-                           "or 'define function' in class body")
+                           "'define function', or a Simple AGK form "
+                           "('<name> as <Type>', 'constructor', 'to ...') "
+                           "in class body")
         self.expect(T.DEDENT, "expected end of class body")
-        return A.ClassDef(name.value, base, fields, constructor, methods,
-                          line=cls.line, col=cls.column)
+        return fields, methods, constructor
+
+    def _parse_simple_field(self, name_tok):
+        """v0.7.0 (Simple AGK): `<name> as <Type>` field declaration."""
+        self.expect(T.AS, f"expected 'as' after field {name_tok.value!r}")
+        type_name = self.expect(T.IDENTIFIER,
+                                f"expected type for field {name_tok.value!r}")
+        self.expect(T.NEWLINE, "expected end of line after field declaration")
+        return A.FieldDecl(name_tok.value, type_name.value,
+                           line=name_tok.line, col=name_tok.column)
+
+    def _parse_simple_constructor(self):
+        """v0.7.0 (Simple AGK): `constructor [with <params>]:` — the
+        `constructor` token was just consumed."""
+        ctor = self.tokens[self.pos - 1]
+        params = []
+        if self._peek_is_word(0, "with"):
+            self.advance()
+            params = self._parse_simple_params()
+        self.expect(T.COLON, "expected ':' after constructor signature")
+        body = self.parse_block()
+        return A.ConstructorDef(params, body, line=ctor.line, col=ctor.column)
 
     def _parse_field(self):
         var = self.tokens[self.pos - 1]  # VARIABLE token just matched
@@ -351,6 +477,17 @@ class Parser:
                 and self.tokens[i].type == T.IDENTIFIER
                 and self.tokens[i].value == value)
 
+    def _peek_is(self, type_, offset):
+        """True when the token `offset` ahead has the given token type."""
+        i = self.pos + offset
+        return i < len(self.tokens) and self.tokens[i].type == type_
+
+    def _at_each_in(self):
+        """v0.7.0 (Simple AGK): `each <name> in` at statement start."""
+        return (self._peek_is(T.EACH, 0)
+                and self._peek_is(T.IDENTIFIER, 1)
+                and self._peek_is(T.IN, 2))
+
     def _next_starts_simple_expr(self):
         i = self.pos + 1
         return (i < len(self.tokens)
@@ -393,6 +530,9 @@ class Parser:
             if tok.value == "ask":
                 return self.parse_ask()
             return self.parse_repeat()
+        if self._at_each_in():
+            # v0.7.0 (Simple AGK): `each <name> in <expr>:`.
+            return self.parse_each()
         if tok.type == T.DEFINE:
             self.error("'define' is only allowed at top level or in a class body")
         if tok.type == T.EXTERN:
@@ -489,8 +629,15 @@ class Parser:
     def parse_repeat(self):
         """`repeat <expr> times:` — counted loop. Desugars to
         `for <hidden> in range(<expr>):` with a generated variable name
-        that cannot collide with user code."""
+        that cannot collide with user code.
+
+        v0.7.0 (Simple AGK): `repeat with <name> from <start> to <end>
+        [step <step>]:` — the range loop with a named variable."""
         kw = self.advance()  # 'repeat'
+        if (self._peek_is_word(0, "with")
+                and self._peek_is(T.IDENTIFIER, 1)
+                and self._peek_is(T.FROM, 2)):
+            return self._parse_repeat_with(kw)
         count = self.parse_expression()
         t = self.peek()
         if not (t.type == T.IDENTIFIER and t.value in ("times", "time")):
@@ -506,6 +653,39 @@ class Parser:
             A.Call(A.Name("range", line=kw.line, col=kw.column), [count],
                    line=kw.line, col=kw.column),
             body, line=kw.line, col=kw.column)
+
+    def _parse_repeat_with(self, kw):
+        """`repeat with <name> from <start> to <end> [step <step>]:`
+        (Simple AGK) — the `for <name> from ... to ...` range loop."""
+        self.advance()  # 'with'
+        var = self.expect(T.IDENTIFIER,
+                          "expected loop variable after 'repeat with'")
+        self.expect(T.FROM,
+                    "expected 'from' in "
+                    "'repeat with <name> from <start> to <end>'")
+        start = self.parse_expression()
+        self.expect(T.TO,
+                    "expected 'to' in "
+                    "'repeat with <name> from <start> to <end>'")
+        end = self.parse_expression()
+        step = None
+        if self.match(T.STEP):
+            step = self.parse_expression()
+        self.expect(T.COLON, "expected ':' after 'repeat with ...' header")
+        return A.ForRangeStmt(var.value, start, end, step,
+                              self.parse_block(),
+                              line=kw.line, col=kw.column)
+
+    def parse_each(self):
+        """v0.7.0 (Simple AGK): `each <name> in <expr>:` — drops the `for`
+        from `for each <name> in <expr>:`."""
+        kw = self.advance()  # 'each'
+        var = self.expect(T.IDENTIFIER, "expected loop variable after 'each'")
+        self.expect(T.IN, f"expected 'in' after loop variable {var.value!r}")
+        iterable = self.parse_expression()
+        self.expect(T.COLON, "expected ':' after 'each ... in ...' header")
+        return A.ForEachStmt(var.value, iterable, self.parse_block(),
+                             line=kw.line, col=kw.column)
 
     def parse_increase_decrease(self):
         """`increase <name> [by <expr>]` / `decrease <name> [by <expr>]` —
@@ -526,10 +706,11 @@ class Parser:
                                  line=kw.line, col=kw.column),
                          line=kw.line, col=kw.column)
 
-    def parse_to_function_def(self):
+    def parse_to_function_def(self, is_async=False):
         """`to <name> [with <params>] [and returns <Type>]:` — Simple AGK
         alias for `define function`. Params are comma-separated
-        `name [as Type]`; an omitted type is dynamically typed."""
+        `name [as Type] [= default]`; an omitted type is dynamically typed.
+        v0.7.0: `async to <name> ...:` defines an async function."""
         kw = self.expect(T.TO, "expected 'to'")
         name_tok = self.expect(T.IDENTIFIER, "expected function name "
                                              "after 'to'")
@@ -545,22 +726,29 @@ class Parser:
         self.expect(T.COLON, "expected ':' after function signature")
         body = self.parse_block()
         return A.FunctionDef(name_tok.value, params, return_type, body,
+                             is_async=is_async,
                              line=kw.line, col=kw.column)
 
-    def _parse_simple_params(self):
-        params = [self._parse_simple_param()]
+    def _parse_simple_params(self, allow_defaults=True):
+        params = [self._parse_simple_param(allow_defaults)]
         while self.match(T.COMMA):
-            params.append(self._parse_simple_param())
+            params.append(self._parse_simple_param(allow_defaults))
         return params
 
-    def _parse_simple_param(self):
+    def _parse_simple_param(self, allow_defaults=True):
         name = self.expect(T.IDENTIFIER, "expected parameter name")
         type_name = None
         if self.match(T.AS):
             type_name = self.expect(
                 T.IDENTIFIER,
                 f"expected type for parameter {name.value!r}").value
-        return A.Param(name.value, type_name, None,
+        default = None
+        if self.match(T.ASSIGN):
+            if not allow_defaults:
+                self.error("default parameter values are not allowed here",
+                           name)
+            default = self._parse_default(name)
+        return A.Param(name.value, type_name, default,
                        line=name.line, col=name.column)
 
     def _next_is(self, type_):

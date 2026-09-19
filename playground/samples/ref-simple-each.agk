@@ -1,0 +1,5 @@
+to main:
+    total is 0
+    each n in [1, 2, 3]:
+        increase total by n
+    say total

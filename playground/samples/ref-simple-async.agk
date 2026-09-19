@@ -1,0 +1,5 @@
+async to fetch with url as String:
+    return "got " + url
+
+async to main:
+    say await fetch("x")

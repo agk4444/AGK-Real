@@ -1,0 +1,18 @@
+class Counter:
+    n as Integer
+    constructor:
+        set n to 0
+    to bump:
+        set n to n + 1
+    to value:
+        return n
+
+class LoudCounter extends Counter:
+    to value:
+        return n * 10 + 2
+
+to main:
+    c is LoudCounter()
+    c.bump()
+    c.bump()
+    say c.value()

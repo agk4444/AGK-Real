@@ -1,0 +1,4 @@
+constant Pi is 3.14
+
+to main:
+    say Pi * 2

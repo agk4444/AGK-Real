@@ -38,6 +38,9 @@ ENV_DEPENDENT = {
     # on any second run in the same directory
     "stdlib-sqliteutils",
     "stdlib-sqliteutils-2",
+    # calls libc via ctypes — no system shared libraries in the browser
+    # playground
+    "ref-simple-use",
 }
 
 BLOCK_RE = re.compile(
