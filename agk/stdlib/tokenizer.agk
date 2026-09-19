@@ -1,0 +1,115 @@
+# AGK-Real standard library: tokenizer helpers for LLM work.
+# Import with: import tokenizer
+# (Functions are inlined into your program; call them directly.)
+#
+# Token counting, truncation and chunking on top of HuggingFace
+# tokenizers, plus tiktoken (OpenAI) encode/decode, plus a dependency-free
+# estimate. Nothing here is imported until you call it: importing this
+# AGK module never requires the Python packages to be installed. Every
+# backend function raises a clear "pip install ..." error when its
+# package is missing.
+#
+# Requires for HF functions: pip install transformers
+# Requires for tiktoken functions: pip install tiktoken
+
+import importlib
+
+
+define function _tok_need that takes package as String and returns Object:
+    try:
+        return importlib.import_module(package)
+    catch:
+        raise "tokenizer: this needs the '{package}' Python package. Install it with: pip install {package}"
+
+
+define function _tok_hf that takes model as String and returns Object:
+    create transformers as Object
+    set transformers to _tok_need("transformers")
+    return transformers.AutoTokenizer.from_pretrained(model)
+
+
+define function tok_estimate that takes text as String and returns Integer:
+    return int(len(text) / 4) + 1
+
+
+define function tok_count that takes model as String, text as String and returns Integer:
+    create tok as Object
+    set tok to _tok_hf(model)
+    return len(tok.encode(text))
+
+
+define function tok_encode that takes model as String, text as String and returns List:
+    create tok as Object
+    set tok to _tok_hf(model)
+    return tok.encode(text)
+
+
+define function tok_decode that takes model as String, ids as List and returns String:
+    create tok as Object
+    set tok to _tok_hf(model)
+    return tok.decode(ids)
+
+
+define function _tok_count_with that takes tok as Object, text as String and returns Integer:
+    return len(tok.encode(text))
+
+
+define function tok_truncate that takes model as String, text as String, max_tokens as Integer and returns String:
+    create tok as Object
+    set tok to _tok_hf(model)
+    create ids as List
+    set ids to tok.encode(text)
+    create clipped as List
+    set clipped to []
+    create i as Integer
+    set i to 0
+    while i < len(ids) and i < max_tokens:
+        clipped.append(ids[i])
+        set i to i + 1
+    return tok.decode(clipped)
+
+
+define function tok_chunks that takes model as String, text as String, max_tokens as Integer and returns List:
+    create tok as Object
+    set tok to _tok_hf(model)
+    create parts as List
+    set parts to text.split("\n\n")
+    create chunks as List
+    set chunks to []
+    create current as String
+    set current to ""
+    for each part in parts:
+        create trial as String
+        if current == "":
+            set trial to part
+        otherwise:
+            set trial to current + "\n\n" + part
+        if _tok_count_with(tok, trial) <= max_tokens:
+            set current to trial
+        otherwise:
+            if current != "":
+                chunks.append(current)
+            set current to part
+    if current != "":
+        chunks.append(current)
+    return chunks
+
+
+define function tok_tiktoken_encode that takes encoding_name as String, text as String and returns List:
+    create tiktoken as Object
+    set tiktoken to _tok_need("tiktoken")
+    create enc as Object
+    set enc to tiktoken.get_encoding(encoding_name)
+    return enc.encode(text)
+
+
+define function tok_tiktoken_decode that takes encoding_name as String, ids as List and returns String:
+    create tiktoken as Object
+    set tiktoken to _tok_need("tiktoken")
+    create enc as Object
+    set enc to tiktoken.get_encoding(encoding_name)
+    return enc.decode(ids)
+
+
+define function tok_tiktoken_count that takes encoding_name as String, text as String and returns Integer:
+    return len(tok_tiktoken_encode(encoding_name, text))

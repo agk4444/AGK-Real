@@ -1,0 +1,179 @@
+# AGK-Real standard library: HuggingFace transformers helpers.
+# Import with: import transformers
+# (Functions are inlined into your program; call them directly.)
+#
+# Text generation, sentiment classification, summarization, translation,
+# fill-mask, question answering, zero-shot classification, embeddings,
+# tokenization and model downloading via the HuggingFace transformers
+# Python library. Nothing here is imported until you call it: importing
+# this AGK module never requires the Python packages to be installed.
+# Every function raises a clear "pip install ..." error when its
+# backend is missing.
+#
+# Requires: pip install transformers torch
+# (some tokenizers additionally need: pip install sentencepiece)
+#
+# Note on tf_generate: AGK cannot pass keyword arguments to Python
+# calls, so generation runs as a small explicit loop (tokenize, forward,
+# pick the next token, repeat) instead of model.generate(...). It is
+# slower than the native call but needs no kwargs and behaves the same
+# for greedy (temperature 0) and sampled decoding.
+
+import importlib
+
+
+define function _tf_need that takes package as String and returns Object:
+    try:
+        return importlib.import_module(package)
+    catch:
+        raise "transformers: this needs the '{package}' Python package. Install it with: pip install {package}"
+
+
+define function tf_generate that takes model as String, prompt as String, max_new_tokens as Integer = 20, temperature as Float = 0.0 and returns String:
+    create transformers as Object
+    set transformers to _tf_need("transformers")
+    create torch as Object
+    set torch to _tf_need("torch")
+    create tok as Object
+    set tok to transformers.AutoTokenizer.from_pretrained(model)
+    create m as Object
+    set m to transformers.AutoModelForCausalLM.from_pretrained(model)
+    m.eval()
+    create ids as List
+    set ids to tok.encode(prompt)
+    create taken as Integer
+    set taken to 0
+    create finished as Boolean
+    set finished to false
+    while taken < max_new_tokens and not finished:
+        create inp as Object
+        set inp to torch.tensor([ids])
+        create out as Object
+        set out to m(inp)
+        create logits as Object
+        set logits to out.logits
+        create last as Object
+        set last to logits[0][len(ids) - 1]
+        create next_id as Integer
+        if temperature <= 0.0:
+            set next_id to int(torch.argmax(last))
+        otherwise:
+            create probs as Object
+            set probs to torch.softmax(last / temperature, 0)
+            set next_id to int(torch.multinomial(probs, 1)[0])
+        if next_id == tok.eos_token_id:
+            set finished to true
+        otherwise:
+            ids.append(next_id)
+        set taken to taken + 1
+    return tok.decode(ids)
+
+
+define function tf_generate_pipeline that takes model as String, prompt as String and returns String:
+    create transformers as Object
+    set transformers to _tf_need("transformers")
+    create gen as Object
+    set gen to transformers.pipeline("text-generation", model)
+    create out as Object
+    set out to gen(prompt)
+    return out[0]["generated_text"]
+
+
+define function tf_classify that takes model as String, text as String and returns Dict:
+    create transformers as Object
+    set transformers to _tf_need("transformers")
+    create clf as Object
+    set clf to transformers.pipeline("sentiment-analysis", model)
+    create out as Object
+    set out to clf(text)
+    create top as Object
+    set top to out[0]
+    return {"label": top["label"], "score": top["score"]}
+
+
+define function tf_summarize that takes model as String, text as String and returns String:
+    create transformers as Object
+    set transformers to _tf_need("transformers")
+    create summ as Object
+    set summ to transformers.pipeline("summarization", model)
+    create out as Object
+    set out to summ(text)
+    return out[0]["summary_text"]
+
+
+define function tf_translate that takes model as String, text as String and returns String:
+    create transformers as Object
+    set transformers to _tf_need("transformers")
+    create tra as Object
+    set tra to transformers.pipeline("translation", model)
+    create out as Object
+    set out to tra(text)
+    return out[0]["translation_text"]
+
+
+define function tf_fill_mask that takes model as String, text as String and returns String:
+    create transformers as Object
+    set transformers to _tf_need("transformers")
+    create fill as Object
+    set fill to transformers.pipeline("fill-mask", model)
+    create out as Object
+    set out to fill(text)
+    return out[0]["token_str"]
+
+
+define function tf_answer that takes model as String, question as String, context as String and returns String:
+    create transformers as Object
+    set transformers to _tf_need("transformers")
+    create qa as Object
+    set qa to transformers.pipeline("question-answering", model)
+    create out as Object
+    set out to qa(question, context)
+    return out["answer"]
+
+
+define function tf_zero_shot that takes model as String, text as String, labels as List and returns String:
+    create transformers as Object
+    set transformers to _tf_need("transformers")
+    create zsc as Object
+    set zsc to transformers.pipeline("zero-shot-classification", model)
+    create out as Object
+    set out to zsc(text, labels)
+    return out["labels"][0]
+
+
+define function tf_embed that takes model as String, text as String and returns List:
+    create transformers as Object
+    set transformers to _tf_need("transformers")
+    create torch as Object
+    set torch to _tf_need("torch")
+    create fe as Object
+    set fe to transformers.pipeline("feature-extraction", model)
+    create feats as Object
+    set feats to fe(text)
+    create mat as Object
+    set mat to torch.tensor(feats[0])
+    create pooled as Object
+    set pooled to torch.mean(mat, 0)
+    return pooled.tolist()
+
+
+define function tf_encode that takes model as String, text as String and returns List:
+    create transformers as Object
+    set transformers to _tf_need("transformers")
+    create tok as Object
+    set tok to transformers.AutoTokenizer.from_pretrained(model)
+    return tok.encode(text)
+
+
+define function tf_decode that takes model as String, ids as List and returns String:
+    create transformers as Object
+    set transformers to _tf_need("transformers")
+    create tok as Object
+    set tok to transformers.AutoTokenizer.from_pretrained(model)
+    return tok.decode(ids)
+
+
+define function tf_download that takes model as String and returns String:
+    create hub as Object
+    set hub to _tf_need("huggingface_hub")
+    return hub.snapshot_download(model)

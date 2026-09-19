@@ -1,0 +1,98 @@
+# AGK-Real standard library: HuggingFace datasets helpers.
+# Import with: import datasets
+# (Functions are inlined into your program; call them directly.)
+#
+# Load, inspect, slice, shuffle, split, build, save and reload datasets
+# via the HuggingFace datasets Python library. Nothing here is imported
+# until you call it: importing this AGK module never requires the
+# datasets package to be installed. Every function raises a clear
+# "pip install datasets" error when it is missing.
+#
+# Requires: pip install datasets
+
+import importlib
+
+
+define function _ds_need that returns Object:
+    try:
+        return importlib.import_module("datasets")
+    catch:
+        raise "datasets: this needs the 'datasets' Python package. Install it with: pip install datasets"
+
+
+define function ds_load that takes name as String, split as String = "train" and returns Object:
+    create datasets as Object
+    set datasets to _ds_need()
+    return datasets.load_dataset(name, split)
+
+
+define function ds_load_config that takes name as String, config as String, split as String = "train" and returns Object:
+    create datasets as Object
+    set datasets to _ds_need()
+    return datasets.load_dataset(name, config, split)
+
+
+define function ds_len that takes ds as Object and returns Integer:
+    return len(ds)
+
+
+define function ds_row that takes ds as Object, i as Integer and returns Dict:
+    return dict(ds[i])
+
+
+define function ds_column that takes ds as Object, name as String and returns List:
+    return list(ds[name])
+
+
+define function ds_column_names that takes ds as Object and returns List:
+    return ds.column_names
+
+
+define function ds_select that takes ds as Object, indices as List and returns Object:
+    return ds.select(indices)
+
+
+define function ds_take that takes ds as Object, n as Integer and returns Object:
+    return ds.select(range(n))
+
+
+define function ds_skip that takes ds as Object, n as Integer and returns Object:
+    return ds.select(range(n, len(ds)))
+
+
+define function ds_shuffle that takes ds as Object, seed as Integer = 42 and returns Object:
+    return ds.shuffle(seed)
+
+
+define function ds_split that takes ds as Object, test_fraction as Float = 0.2, seed as Integer = 42 and returns List:
+    create shuffled as Object
+    set shuffled to ds_shuffle(ds, seed)
+    create n as Integer
+    set n to len(shuffled)
+    create n_test as Integer
+    set n_test to int(n * test_fraction)
+    create test_ds as Object
+    set test_ds to shuffled.select(range(n_test))
+    create train_ds as Object
+    set train_ds to shuffled.select(range(n_test, n))
+    return [train_ds, test_ds]
+
+
+define function ds_from_records that takes records as List and returns Object:
+    create datasets as Object
+    set datasets to _ds_need()
+    return datasets.Dataset.from_list(records)
+
+
+define function ds_to_records that takes ds as Object and returns List:
+    return ds.to_list()
+
+
+define function ds_save that takes ds as Object, path as String:
+    ds.save_to_disk(path)
+
+
+define function ds_load_disk that takes path as String and returns Object:
+    create datasets as Object
+    set datasets to _ds_need()
+    return datasets.load_from_disk(path)

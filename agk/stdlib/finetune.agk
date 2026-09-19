@@ -1,0 +1,158 @@
+# AGK-Real standard library: LoRA fine-tuning helpers.
+# Import with: import finetune
+# (Functions are inlined into your program; call them directly.)
+#
+# Low-rank adaptation (LoRA) fine-tuning of causal language models via
+# the peft + transformers + datasets Python libraries, plus manual
+# training-data preparation and adapter merging. Nothing here is
+# imported until you call it: importing this AGK module never requires
+# the Python packages to be installed. Every function raises a clear
+# "pip install ..." error when its backend is missing.
+#
+# Requires: pip install torch transformers datasets peft
+#
+# Note: AGK cannot pass keyword arguments to Python calls, so
+# ft_lora_train builds its TrainingArguments from the output directory
+# alone and uses the library defaults for everything else (3 epochs,
+# learning rate 5e-5, batch size 8, no evaluation split). LoraConfig is
+# built positionally as (r=8, target_modules, lora_alpha=16). Pass
+# ["q_proj", "v_proj"] for LLaMA/Mistral-style models or
+# ["query", "key", "value"] for older attention layouts.
+
+import importlib
+
+
+define function _ft_need that takes package as String and returns Object:
+    try:
+        return importlib.import_module(package)
+    catch:
+        raise "finetune: this needs the '{package}' Python package. Install it with: pip install {package}"
+
+
+define function _ft_none that returns Object:
+    create d as Dict
+    set d to {}
+    return d.get("no_such_key")
+
+
+define function ft_prepare_lm that takes model as String, texts as List, max_length as Integer = 256 and returns List:
+    create transformers as Object
+    set transformers to _ft_need("transformers")
+    create tok as Object
+    set tok to transformers.AutoTokenizer.from_pretrained(model)
+    create pad_id as Integer
+    set pad_id to tok.eos_token_id
+    create records as List
+    set records to []
+    for each text in texts:
+        create ids as List
+        set ids to tok.encode(text)
+        create clipped as List
+        set clipped to []
+        create i as Integer
+        set i to 0
+        while i < len(ids) and i < max_length:
+            clipped.append(ids[i])
+            set i to i + 1
+        create real_len as Integer
+        set real_len to len(clipped)
+        while len(clipped) < max_length:
+            clipped.append(pad_id)
+        create mask as List
+        set mask to []
+        create j as Integer
+        set j to 0
+        while j < max_length:
+            if j < real_len:
+                mask.append(1)
+            otherwise:
+                mask.append(0)
+            set j to j + 1
+        records.append({"input_ids": clipped, "attention_mask": mask, "labels": clipped})
+    return records
+
+
+define function ft_lora_train that takes model as String, records as List, output_dir as String, target_modules as List and returns String:
+    create transformers as Object
+    set transformers to _ft_need("transformers")
+    create peft as Object
+    set peft to _ft_need("peft")
+    create datasets as Object
+    set datasets to _ft_need("datasets")
+    create m as Object
+    set m to transformers.AutoModelForCausalLM.from_pretrained(model)
+    create cfg as Object
+    set cfg to peft.LoraConfig(8, target_modules, 16)
+    create pm as Object
+    set pm to peft.get_peft_model(m, cfg)
+    create ds as Object
+    set ds to datasets.Dataset.from_list(records)
+    create args as Object
+    set args to transformers.TrainingArguments(output_dir)
+    create trainer as Object
+    set trainer to transformers.Trainer(pm, args, _ft_none(), ds)
+    trainer.train()
+    trainer.save_model(output_dir)
+    return output_dir
+
+
+define function ft_merge_lora that takes base_model as String, adapter_dir as String, output_dir as String and returns String:
+    create transformers as Object
+    set transformers to _ft_need("transformers")
+    create peft as Object
+    set peft to _ft_need("peft")
+    create m as Object
+    set m to transformers.AutoModelForCausalLM.from_pretrained(base_model)
+    create pm as Object
+    set pm to peft.PeftModel.from_pretrained(m, adapter_dir)
+    create merged as Object
+    set merged to pm.merge_and_unload()
+    merged.save_pretrained(output_dir)
+    create tok as Object
+    set tok to transformers.AutoTokenizer.from_pretrained(base_model)
+    tok.save_pretrained(output_dir)
+    return output_dir
+
+
+define function ft_generate_adapter that takes base_model as String, adapter_dir as String, prompt as String, max_new_tokens as Integer = 20, temperature as Float = 0.0 and returns String:
+    create transformers as Object
+    set transformers to _ft_need("transformers")
+    create torch as Object
+    set torch to _ft_need("torch")
+    create peft as Object
+    set peft to _ft_need("peft")
+    create tok as Object
+    set tok to transformers.AutoTokenizer.from_pretrained(base_model)
+    create m as Object
+    set m to transformers.AutoModelForCausalLM.from_pretrained(base_model)
+    create pm as Object
+    set pm to peft.PeftModel.from_pretrained(m, adapter_dir)
+    pm.eval()
+    create ids as List
+    set ids to tok.encode(prompt)
+    create taken as Integer
+    set taken to 0
+    create finished as Boolean
+    set finished to false
+    while taken < max_new_tokens and not finished:
+        create inp as Object
+        set inp to torch.tensor([ids])
+        create out as Object
+        set out to pm(inp)
+        create logits as Object
+        set logits to out.logits
+        create last as Object
+        set last to logits[0][len(ids) - 1]
+        create next_id as Integer
+        if temperature <= 0.0:
+            set next_id to int(torch.argmax(last))
+        otherwise:
+            create probs as Object
+            set probs to torch.softmax(last / temperature, 0)
+            set next_id to int(torch.multinomial(probs, 1)[0])
+        if next_id == tok.eos_token_id:
+            set finished to true
+        otherwise:
+            ids.append(next_id)
+        set taken to taken + 1
+    return tok.decode(ids)

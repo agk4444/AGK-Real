@@ -1,0 +1,84 @@
+# AGK-Real standard library: text embedding helpers.
+# Import with: import embeddings
+# (Functions are inlined into your program; call them directly.)
+#
+# Sentence embeddings via the sentence-transformers Python library,
+# plus dependency-free cosine similarity and a small semantic-search
+# helper written in pure AGK. Nothing here is imported until you call
+# it: importing this AGK module never requires sentence-transformers
+# to be installed. The encode functions raise a clear
+# "pip install sentence-transformers" error when it is missing;
+# emb_cosine always works with no dependencies.
+#
+# Requires for encoding: pip install sentence-transformers
+
+import importlib
+import mathutils
+
+
+define function _emb_need that returns Object:
+    try:
+        return importlib.import_module("sentence_transformers")
+    catch:
+        raise "embeddings: this needs the 'sentence_transformers' Python package. Install it with: pip install sentence-transformers"
+
+
+define function emb_encode that takes model as String, texts as List and returns List:
+    create st as Object
+    set st to _emb_need()
+    create m as Object
+    set m to st.SentenceTransformer(model)
+    create arr as Object
+    set arr to m.encode(texts)
+    return arr.tolist()
+
+
+define function emb_encode_one that takes model as String, text as String and returns List:
+    create vecs as List
+    set vecs to emb_encode(model, [text])
+    return vecs[0]
+
+
+define function emb_cosine that takes a as List, b as List and returns Float:
+    create dot as Float
+    set dot to 0.0
+    create na as Float
+    set na to 0.0
+    create nb as Float
+    set nb to 0.0
+    create i as Integer
+    set i to 0
+    while i < len(a) and i < len(b):
+        set dot to dot + a[i] * b[i]
+        set na to na + a[i] * a[i]
+        set nb to nb + b[i] * b[i]
+        set i to i + 1
+    if na == 0.0 or nb == 0.0:
+        return 0.0
+    return dot / (sqrt_of(na) * sqrt_of(nb))
+
+
+define function emb_search that takes model as String, query as String, corpus as List and returns List:
+    create q as List
+    set q to emb_encode_one(model, query)
+    create docvecs as List
+    set docvecs to emb_encode(model, corpus)
+    create pairs as List
+    set pairs to []
+    create i as Integer
+    set i to 0
+    for each v in docvecs:
+        pairs.append([emb_cosine(q, v), i])
+        set i to i + 1
+    create ranked as List
+    set ranked to sorted(pairs)
+    create out as List
+    set out to []
+    create j as Integer
+    set j to len(ranked) - 1
+    while j >= 0:
+        create p as List
+        set p to ranked[j]
+        out.append([p[1], p[0]])
+        set j to j - 1
+    return out

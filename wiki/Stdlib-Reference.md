@@ -31,6 +31,12 @@ Twenty-seven `.agk` modules ship with the compiler (in `agk/stdlib/`). Import on
 - [[iterutils|Stdlib-Reference#iterutils]]
 - [[colorutils|Stdlib-Reference#colorutils]]
 - [[logutils|Stdlib-Reference#logutils]]
+- [[transformers|Stdlib-Reference#transformers]]
+- [[tokenizer|Stdlib-Reference#tokenizer]]
+- [[torchutils|Stdlib-Reference#torchutils]]
+- [[datasets|Stdlib-Reference#datasets]]
+- [[embeddings|Stdlib-Reference#embeddings]]
+- [[finetune|Stdlib-Reference#finetune]]
 - [[Writing your own module|Stdlib-Reference#writing-your-own-module]]
 
 Bigger end-to-end programs live on the [[Library cookbook|Library-Cookbook]] page: a password-hashing CLI, a generative-art PNG, and a tool-using agent with a mocked LLM.
@@ -797,6 +803,136 @@ define function main:
     create text as String
     set text to read_text("app.log")
     print(regex_match("INFO: started", text))
+```
+
+## transformers
+
+HuggingFace transformers: text generation, classification, summarization, translation, fill-mask, question answering, zero-shot classification, embeddings, tokenization and model downloading. Requires `pip install transformers torch` (some tokenizers also need `pip install sentencepiece`). Importing this module never requires the packages — each function raises a clear `pip install ...` error only when its backend is missing. **[experimental]**
+
+- `tf_generate(model as String, prompt as String, max_new_tokens as Integer = 20, temperature as Float = 0.0)` — greedy (`temperature 0.0`) or sampled generation. Runs as an explicit tokenize → forward → pick-next loop because AGK cannot pass keyword arguments to Python calls.
+- `tf_generate_pipeline(model, prompt)` — one-shot `text-generation` pipeline with library defaults
+- `tf_classify(model, text)` — sentiment pipeline, returns `{"label", "score"}`
+- `tf_summarize(model, text)`, `tf_translate(model, text)` — pipelines, return the text
+- `tf_fill_mask(model, text)` — top `token_str` for `[MASK]`
+- `tf_answer(model, question, context)` — question-answering pipeline
+- `tf_zero_shot(model, text, labels as List)` — top label
+- `tf_embed(model, text)` — feature-extraction pipeline, mean-pooled to one vector
+- `tf_encode(model, text)` / `tf_decode(model, ids)` — tokenizer round-trip
+- `tf_download(model)` — `snapshot_download`, returns the local path
+
+<!-- verify: id=stdlib-transformers-missing error="pip install transformers" -->
+```agk
+import transformers
+
+define function main:
+    print(tf_encode("gpt2", "hi"))
+```
+
+## tokenizer
+
+Token counting, truncation and chunking for LLM prompts. The `tok_estimate` heuristic needs nothing; the `tok_*` functions need `pip install transformers`; the `tok_tiktoken_*` functions need `pip install tiktoken`. **[experimental]**
+
+- `tok_estimate(text)` — dependency-free estimate: `len(text)/4 + 1`
+- `tok_count(model, text)` — exact count with a HuggingFace tokenizer
+- `tok_encode(model, text)` / `tok_decode(model, ids)`
+- `tok_truncate(model, text, max_tokens)` — cut to a token budget, decode back
+- `tok_chunks(model, text, max_tokens)` — split on blank lines, greedily pack paragraphs into token-budget chunks
+- `tok_tiktoken_encode/decode/count(encoding_name, ...)` — OpenAI encodings like `"cl100k_base"`
+
+<!-- verify: id=stdlib-tokenizer-estimate output="3\n" -->
+```agk
+import tokenizer
+
+define function main:
+    print(tok_estimate("hello world"))
+```
+
+<!-- verify: id=stdlib-tokenizer-missing error="pip install transformers" -->
+```agk
+import tokenizer
+
+define function main:
+    print(tok_count("gpt2", "hi"))
+```
+
+## torchutils
+
+PyTorch tensor creation, math, softmax/argmax, seeding and save/load. Requires `pip install torch`. **[experimental]**
+
+- `torch_version()`, `torch_cuda_available()`, `torch_device()` — `"cuda"` or `"cpu"`
+- `torch_seed(seed)`, `torch_tensor(data)`, `torch_zeros(shape)`, `torch_ones(shape)`, `torch_rand(shape)`
+- `torch_shape(t)`, `torch_to_list(t)`
+- `torch_add/sub/mul(a, b)`, `torch_matmul(a, b)`, `torch_softmax(t, dim)`, `torch_argmax(t)`, `torch_sum(t)`, `torch_mean(t)`, `torch_norm(t)`
+- `torch_save(t, path)`, `torch_load(path)`
+
+<!-- verify: id=stdlib-torchutils-missing error="pip install torch" -->
+```agk
+import torchutils
+
+define function main:
+    print(torch_version())
+```
+
+## datasets
+
+HuggingFace datasets: load, inspect, slice, shuffle, split, build, save and reload. Requires `pip install datasets`. **[experimental]**
+
+- `ds_load(name, split = "train")`, `ds_load_config(name, config, split = "train")`
+- `ds_len(ds)`, `ds_row(ds, i)`, `ds_column(ds, name)`, `ds_column_names(ds)`
+- `ds_select(ds, indices)`, `ds_take(ds, n)`, `ds_skip(ds, n)`, `ds_shuffle(ds, seed = 42)`
+- `ds_split(ds, test_fraction = 0.2, seed = 42)` — returns `[train, test]`
+- `ds_from_records(records)`, `ds_to_records(ds)`
+- `ds_save(ds, path)`, `ds_load_disk(path)`
+
+<!-- verify: id=stdlib-datasets-missing error="pip install datasets" -->
+```agk
+import datasets
+
+define function main:
+    print(ds_len(ds_load("squad")))
+```
+
+## embeddings
+
+Sentence embeddings via `sentence-transformers`, plus dependency-free cosine similarity and semantic search. Requires `pip install sentence-transformers` for the encode functions; `emb_cosine` always works. **[experimental]**
+
+- `emb_encode(model, texts as List)` — list of vectors
+- `emb_encode_one(model, text)` — one vector
+- `emb_cosine(a, b)` — pure AGK, no dependencies
+- `emb_search(model, query, corpus as List)` — `[[index, score], ...]` best-first
+
+<!-- verify: id=stdlib-embeddings-cosine output="1.0\n0.0\n" -->
+```agk
+import embeddings
+
+define function main:
+    print(emb_cosine([1.0, 0.0], [1.0, 0.0]))
+    print(emb_cosine([1.0, 0.0], [0.0, 1.0]))
+```
+
+<!-- verify: id=stdlib-embeddings-missing error="pip install sentence-transformers" -->
+```agk
+import embeddings
+
+define function main:
+    print(emb_encode("all-MiniLM-L6-v2", ["hi"]))
+```
+
+## finetune
+
+LoRA fine-tuning of causal language models via `peft` + `transformers` + `datasets`. Requires `pip install torch transformers datasets peft`. Because AGK cannot pass keyword arguments, `ft_lora_train` uses `TrainingArguments(output_dir)` library defaults (3 epochs, lr 5e-5, batch size 8, no eval split) and builds `LoraConfig` positionally as `(r=8, target_modules, lora_alpha=16)`. **[experimental]**
+
+- `ft_prepare_lm(model, texts as List, max_length as Integer = 256)` — tokenize, truncate, pad (with the eos id) and build attention masks; returns `[{"input_ids", "attention_mask", "labels"}]`
+- `ft_lora_train(model, records, output_dir, target_modules as List)` — trains and saves the adapter; pass `["q_proj", "v_proj"]` for LLaMA/Mistral-style models
+- `ft_merge_lora(base_model, adapter_dir, output_dir)` — merge the adapter back into the base model and save
+- `ft_generate_adapter(base_model, adapter_dir, prompt, max_new_tokens as Integer = 20, temperature as Float = 0.0)` — generate with the adapter loaded
+
+<!-- verify: id=stdlib-finetune-missing error="pip install transformers" -->
+```agk
+import finetune
+
+define function main:
+    print(ft_prepare_lm("gpt2", ["hi"]))
 ```
 
 ## Writing your own module

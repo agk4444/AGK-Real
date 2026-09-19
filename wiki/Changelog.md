@@ -13,6 +13,7 @@ What changed in each release. There is no `CHANGELOG.md` in the repo; this page 
 
 ## v0.6.0 **[current]**
 
+- **New stdlib modules (LLM)** — `transformers` (HF pipelines, generation, tokenization, model download), `tokenizer` (token counting, truncation, chunking, tiktoken), `torchutils` (tensor ops), `datasets` (HF datasets), `embeddings` (sentence-transformers + semantic search), `finetune` (peft LoRA training, adapter merge). All six load their Python backends lazily via `importlib` and raise a clear `pip install ...` error when a package is missing; nothing is imported at module-import time. 33 bundled modules total.
 - **Project scaffolding** — `agk new <name>` generates a runnable project skeleton (`agk.json`, `README.md`, `.gitignore`, `src/` sources, `tests/` with passing starter tests); `--lib` makes a library project with no entry point. `agk test` now also resolves imports from the project root and `src/` when an `agk.json` project root exists.
 - **New stdlib modules** — `mathutils`, `randutils`, `timeutils`, `sysutils`, `pathutils`, `urlutils`, `uuidutils`, `ziputils`, `iniutils`, `htmlutils`, `xmlutils`, `statutils`, `iterutils`, `colorutils`, `logutils` (27 bundled modules total).
 - **Optimizer fix** — dead-store elimination no longer drops a store at the end of a loop body that feeds a read at the top of the next iteration (the loop back-edge now counts the body's own reads as live).

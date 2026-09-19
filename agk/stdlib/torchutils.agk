@@ -1,0 +1,138 @@
+# AGK-Real standard library: PyTorch tensor helpers.
+# Import with: import torchutils
+# (Functions are inlined into your program; call them directly.)
+#
+# Tensor creation, math, shape queries, softmax/argmax, seeding and
+# save/load on top of the PyTorch Python library. Nothing here is
+# imported until you call it: importing this AGK module never requires
+# torch to be installed. Every function raises a clear "pip install
+# torch" error when it is missing.
+#
+# Requires: pip install torch
+# (for GPU builds, follow the CUDA install notes at pytorch.org)
+
+import importlib
+
+
+define function _torch_need that returns Object:
+    try:
+        return importlib.import_module("torch")
+    catch:
+        raise "torchutils: this needs the 'torch' Python package. Install it with: pip install torch"
+
+
+define function torch_version that returns String:
+    create torch as Object
+    set torch to _torch_need()
+    return torch.__version__
+
+
+define function torch_cuda_available that returns Boolean:
+    create torch as Object
+    set torch to _torch_need()
+    return torch.cuda.is_available()
+
+
+define function torch_device that returns String:
+    if torch_cuda_available():
+        return "cuda"
+    otherwise:
+        return "cpu"
+
+
+define function torch_seed that takes seed as Integer:
+    create torch as Object
+    set torch to _torch_need()
+    torch.manual_seed(seed)
+
+
+define function torch_tensor that takes data as List and returns Object:
+    create torch as Object
+    set torch to _torch_need()
+    return torch.tensor(data)
+
+
+define function torch_zeros that takes shape as List and returns Object:
+    create torch as Object
+    set torch to _torch_need()
+    return torch.zeros(shape)
+
+
+define function torch_ones that takes shape as List and returns Object:
+    create torch as Object
+    set torch to _torch_need()
+    return torch.ones(shape)
+
+
+define function torch_rand that takes shape as List and returns Object:
+    create torch as Object
+    set torch to _torch_need()
+    return torch.rand(shape)
+
+
+define function torch_shape that takes t as Object and returns List:
+    return list(t.shape)
+
+
+define function torch_add that takes a as Object, b as Object and returns Object:
+    return a + b
+
+
+define function torch_sub that takes a as Object, b as Object and returns Object:
+    return a - b
+
+
+define function torch_mul that takes a as Object, b as Object and returns Object:
+    return a * b
+
+
+define function torch_matmul that takes a as Object, b as Object and returns Object:
+    create torch as Object
+    set torch to _torch_need()
+    return torch.matmul(a, b)
+
+
+define function torch_softmax that takes t as Object, dim as Integer and returns Object:
+    create torch as Object
+    set torch to _torch_need()
+    return torch.softmax(t, dim)
+
+
+define function torch_argmax that takes t as Object and returns Integer:
+    create torch as Object
+    set torch to _torch_need()
+    return int(torch.argmax(t))
+
+
+define function torch_sum that takes t as Object and returns Float:
+    create torch as Object
+    set torch to _torch_need()
+    return float(torch.sum(t))
+
+
+define function torch_mean that takes t as Object and returns Float:
+    create torch as Object
+    set torch to _torch_need()
+    return float(torch.mean(t))
+
+
+define function torch_norm that takes t as Object and returns Float:
+    create torch as Object
+    set torch to _torch_need()
+    return float(torch.norm(t))
+
+
+define function torch_to_list that takes t as Object and returns List:
+    return t.tolist()
+
+
+define function torch_save that takes t as Object, path as String:
+    create torch as Object
+    set torch to _torch_need()
+    torch.save(t, path)
+
+
+define function torch_load that takes path as String and returns Object:
+    create torch as Object
+    set torch to _torch_need()
+    return torch.load(path)
