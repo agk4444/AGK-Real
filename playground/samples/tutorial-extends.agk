@@ -1,14 +1,13 @@
-define class Animal:
-    variable name as String
-    define constructor that takes n as String:
+class Animal:
+    name as String
+    constructor with n as String:
         set name to n
 
-define class Dog extends Animal:
-    define function speak that returns String:
+class Dog extends Animal:
+    to speak and returns String:
         return "woof"
 
-define function main:
-    create d as Object
-    set d to Dog("rex")
-    print(d.name)
-    print(d.speak())
+to main:
+    d is Dog("rex")
+    say d.name
+    say d.speak()

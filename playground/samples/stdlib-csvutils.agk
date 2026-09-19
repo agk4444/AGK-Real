@@ -1,7 +1,6 @@
 import csvutils
 
-define function main:
-    create rows as List
-    set rows to csv_parse("name,age\nAmy,30")
-    print(rows)
-    print(csv_parse(csv_to_text(rows)) == rows)
+to main:
+    rows is csv_parse("name,age\nAmy,30")
+    say rows
+    say csv_parse(csv_to_text(rows)) is rows

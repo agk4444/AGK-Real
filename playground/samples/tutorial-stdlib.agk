@@ -1,6 +1,7 @@
 import strutils
+
 import listutils
 
-define function main:
-    print(shout("hello"))
-    print(repeat_string("a", 2))
+to main:
+    say shout("hello")
+    say repeat_string("a", 2)

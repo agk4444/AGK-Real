@@ -1,7 +1,7 @@
-define function greet that takes name as String = "World", punct as String = "!":
-    print("Hello, {name}{punct}")
+to greet with name as String = "World", punct as String = "!":
+    say "Hello, {name}{punct}"
 
-define function main:
+to main:
     greet()
     greet("Gopi")
     greet("Gopi", "?")

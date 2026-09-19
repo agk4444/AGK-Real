@@ -1,6 +1,6 @@
 import fileutils
 
-define function main:
+to main:
     write_text("log.txt", "line one\n")
     append_text("log.txt", "line two")
-    print(read_text("log.txt"))
+    say read_text("log.txt")

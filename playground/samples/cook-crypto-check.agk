@@ -1,12 +1,10 @@
 import crypto
 
-define function check that takes pw as String, salt as String, want as String and returns Boolean:
+to check with pw as String, salt as String, want as String and returns Boolean:
     return compare_digest(pbkdf2_hex(pw, salt, 100000), want)
 
-define function main:
-    create salt as String
-    set salt to "fixed-salt-for-demo"
-    create stored as String
-    set stored to pbkdf2_hex("s3cret", salt, 100000)
-    print(check("s3cret", salt, stored))
-    print(check("wrong", salt, stored))
+to main:
+    salt is "fixed-salt-for-demo"
+    stored is pbkdf2_hex("s3cret", salt, 100000)
+    say check("s3cret", salt, stored)
+    say check("wrong", salt, stored)

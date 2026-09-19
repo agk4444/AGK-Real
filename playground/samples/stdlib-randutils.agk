@@ -1,9 +1,8 @@
 import randutils
 
-define function main:
+to main:
     seed(42)
-    create a as Integer
-    set a to randint_between(1, 100)
+    a is randint_between(1, 100)
     seed(42)
-    print(randint_between(1, 100) == a)
-    print(choice_of([7]))
+    say randint_between(1, 100) is a
+    say choice_of([7])

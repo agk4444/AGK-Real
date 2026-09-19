@@ -1,18 +1,16 @@
 import graphics
+
 import fileutils
 
-define function main:
-    create c as Object
-    set c to new(64, 40, "#0d1117")
-    for y from 0 to 39:
-        for x from 0 to 63:
-            create r as Integer
-            set r to (x * 4) % 256
-            create b as Integer
-            set b to (y * 6) % 256
+to main:
+    c is new(64, 40, "#0d1117")
+    repeat with y from 0 to 39:
+        repeat with x from 0 to 63:
+            r is x * 4 % 256
+            b is y * 6 % 256
             pixel(c, x, y, [r, 64, b])
     circle(c, 32, 20, 12, "#e94560", true)
     circle(c, 32, 20, 7, "#0d1117", true)
     line(c, 0, 0, 63, 39, [255, 255, 255])
-    print(save_png(c, "art.png"))
-    print(file_exists("art.png"))
+    say save_png(c, "art.png")
+    say file_exists("art.png")

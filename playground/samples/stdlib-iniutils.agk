@@ -1,8 +1,9 @@
 import fileutils
+
 import iniutils
 
-define function main:
+to main:
     write_text("app.ini", "[server]\nhost = example.com\nport = 8080\n")
-    print(ini_get("app.ini", "server", "host"))
-    print(ini_has("app.ini", "server", "port"))
-    print(ini_sections("app.ini"))
+    say ini_get("app.ini", "server", "host")
+    say ini_has("app.ini", "server", "port")
+    say ini_sections("app.ini")

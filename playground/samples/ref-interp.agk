@@ -1,6 +1,5 @@
-define function main:
-    create name as String
-    set name to "Gopi"
-    print("{name} has {len(name)} letters")
-    print("{{literal}} and {1 + 2}")
-    print("{{{name}}}")
+to main:
+    name is "Gopi"
+    say "{name} has {len(name)} letters"
+    say "{{literal}} and {1 + 2}"
+    say "{{{name}}}"

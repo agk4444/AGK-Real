@@ -1,6 +1,5 @@
-define function main:
-    create i as Integer
-    set i to 0
+to main:
+    i is 0
     while i < 3:
-        print("hi")
-        set i to i + 1
+        say "hi"
+        increase i

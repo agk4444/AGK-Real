@@ -1,8 +1,8 @@
-define function main:
+to main:
     try:
         try:
             raise "boom"
         catch:
             raise
     catch err:
-        print("re-raised: {err}")
+        say "re-raised: {err}"

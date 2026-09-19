@@ -1,7 +1,7 @@
 import sysutils
 
-define function main:
+to main:
     setenv("AGK_DEMO_VAR", "hi")
-    print(getenv("AGK_DEMO_VAR"))
-    print(getenv_or("AGK_NOPE_VAR", "fallback"))
-    print(platform_name() != "")
+    say getenv("AGK_DEMO_VAR")
+    say getenv_or("AGK_NOPE_VAR", "fallback")
+    say platform_name() is not ""

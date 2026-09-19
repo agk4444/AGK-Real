@@ -1,6 +1,5 @@
 import ziputils
 
-define function main:
-    create h as String
-    set h to gzip_compress("hello, agk!")
-    print(gzip_decompress(h))
+to main:
+    h is gzip_compress("hello, agk!")
+    say gzip_decompress(h)

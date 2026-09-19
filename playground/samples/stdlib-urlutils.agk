@@ -1,6 +1,6 @@
 import urlutils
 
-define function main:
-    print(url_encode("hello world!"))
-    print(url_decode("a%20b"))
-    print(url_host("https://example.com:8080/p"))
+to main:
+    say url_encode("hello world!")
+    say url_decode("a%20b")
+    say url_host("https://example.com:8080/p")

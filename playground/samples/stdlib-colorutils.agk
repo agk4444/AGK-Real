@@ -1,5 +1,5 @@
 import colorutils
 
-define function main:
-    print(strip_ansi(red("hello")))
-    print(red("hi") != "hi")
+to main:
+    say strip_ansi(red("hello"))
+    say red("hi") is not "hi"

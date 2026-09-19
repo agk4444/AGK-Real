@@ -1,8 +1,6 @@
 import tensor
 
-define function main:
-    create a as Object
-    set a to tensor_from_list([[1.0, 2.0], [3.0, 4.0]])
-    create b as Object
-    set b to tensor_from_list([[5.0, 6.0], [7.0, 8.0]])
-    print(tensor_to_list(tensor_matmul(a, b)))
+to main:
+    a is tensor_from_list([[1.0, 2.0], [3.0, 4.0]])
+    b is tensor_from_list([[5.0, 6.0], [7.0, 8.0]])
+    say tensor_to_list(tensor_matmul(a, b))

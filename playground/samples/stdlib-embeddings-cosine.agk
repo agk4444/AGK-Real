@@ -1,5 +1,5 @@
 import embeddings
 
-define function main:
-    print(emb_cosine([1.0, 0.0], [1.0, 0.0]))
-    print(emb_cosine([1.0, 0.0], [0.0, 1.0]))
+to main:
+    say emb_cosine([1.0, 0.0], [1.0, 0.0])
+    say emb_cosine([1.0, 0.0], [0.0, 1.0])

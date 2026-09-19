@@ -1,5 +1,5 @@
 import strutils
 
-define function main:
-    print(slug("My First Post!"))
-    print(repeat_string("*-", 4))
+to main:
+    say slug("My First Post!")
+    say repeat_string("*-", 4)

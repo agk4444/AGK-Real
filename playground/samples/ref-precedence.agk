@@ -1,4 +1,4 @@
-define function main:
-    print(1 + 2 * 3)
+to main:
+    say 1 + 2 * 3
     print((1 + 2) * 3)
-    print(not false and true)
+    say not false and true

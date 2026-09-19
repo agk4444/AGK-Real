@@ -1,8 +1,8 @@
 to main:
     n is 10
-    if n is greater than 100:
+    if n > 100:
         say "huge"
-    otherwise if n is greater than 5:
+    otherwise if n > 5:
         say "big"
     otherwise:
         say "small"

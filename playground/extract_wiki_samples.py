@@ -6,6 +6,11 @@ with an exact `output=` expectation — and needing no stdin, argv, local
 HTTP server, or regex matching — becomes playground/samples/<id>.agk with
 its expected stdout in <id>.expected.
 
+The wiki documents both Classic and Simple AGK; the playground showcases
+Simple AGK only, so each sample is transpiled with agk/to_simple.py before
+it is written (idempotency is asserted here; semantic equivalence is
+verified at build time).
+
 Examples that cannot run in the browser playground (error demos,
 compile-only snippets, argv/server/stdin-dependent programs, regex
 outputs) are skipped and reported.
@@ -21,6 +26,9 @@ import shlex
 import shutil
 import sys
 from pathlib import Path
+
+sys.path.insert(0, str(ROOT := Path(__file__).parent.parent))
+from agk.to_simple import to_simple
 
 HERE = Path(__file__).parent
 ROOT = HERE.parent
@@ -107,8 +115,13 @@ def main():
     shutil.rmtree(SAMPLES, ignore_errors=True)
     SAMPLES.mkdir(parents=True)
     for eid, source, output in kept:
-        # Keep the source exactly as documented in the wiki.
-        (SAMPLES / f"{eid}.agk").write_text(source, encoding="utf-8")
+        # The wiki documents both forms; the playground showcases Simple
+        # AGK only, so every sample is transpiled (agk/to_simple.py) before
+        # it is written. Conversion is verified by playground/build.py,
+        # which compile-and-runs each sample against its .expected file.
+        simple = to_simple(source)
+        assert to_simple(simple) == simple, f"{eid}: to_simple not idempotent"
+        (SAMPLES / f"{eid}.agk").write_text(simple, encoding="utf-8")
         # Same decoding as wiki/scripts/verify_examples.py.
         (SAMPLES / f"{eid}.expected").write_text(
             output.replace("\\n", "\n"), encoding="utf-8")

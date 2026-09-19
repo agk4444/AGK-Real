@@ -1,7 +1,6 @@
 import xmlutils
 
-define function main:
-    create doc as String
-    set doc to "<catalog><item>one</item><item>two</item></catalog>"
-    print(xml_root_tag(doc))
-    print(xml_find_texts(doc, "item"))
+to main:
+    doc is "<catalog><item>one</item><item>two</item></catalog>"
+    say xml_root_tag(doc)
+    say xml_find_texts(doc, "item")

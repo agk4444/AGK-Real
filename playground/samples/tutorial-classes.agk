@@ -1,15 +1,14 @@
-define class Counter:
-    variable n as Integer
-    define constructor:
+class Counter:
+    n as Integer
+    constructor:
         set n to 0
-    define function bump:
-        set n to n + 1
-    define function value that returns Integer:
+    to bump:
+        increase n
+    to value and returns Integer:
         return n
 
-define function main:
-    create c as Object
-    set c to Counter()
+to main:
+    c is Counter()
     c.bump()
     c.bump()
-    print(c.value())
+    say c.value()

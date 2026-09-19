@@ -1,6 +1,5 @@
 # a comment runs to end of line
-define function main:
+to main:
     # comments can live inside blocks too
-    create n as Integer  # and trail a statement
-    set n to 40 + 2
-    print(n)
+    n is 40 + 2  # and trail a statement
+    say n

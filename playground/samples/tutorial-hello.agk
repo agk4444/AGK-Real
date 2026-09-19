@@ -1,2 +1,2 @@
-define function main:
-    print("hello, agk")
+to main:
+    say "hello, agk"

@@ -1,8 +1,8 @@
 import listutils
 
-define function main:
-    print(sum_list([1, 2, 3]))
-    print(max_in_list([3, 1, 2]))
-    print(min_in_list([3, 1, 2]))
-    print(contains_int([1, 2], 2))
-    print(contains_int([1, 2], 9))
+to main:
+    say sum_list([1, 2, 3])
+    say max_in_list([3, 1, 2])
+    say min_in_list([3, 1, 2])
+    say contains_int([1, 2], 2)
+    say contains_int([1, 2], 9)

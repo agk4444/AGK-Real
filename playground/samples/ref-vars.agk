@@ -1,8 +1,6 @@
-define function main:
-    create name as String
-    set name to "agk"
-    create n as Integer
-    set n to 41
-    set n to n + 1
-    print(name)
-    print(n)
+to main:
+    name is "agk"
+    n is 41
+    increase n
+    say name
+    say n

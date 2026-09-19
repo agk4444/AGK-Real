@@ -1,6 +1,6 @@
 import statutils
 
-define function main:
-    print(mean_of([1, 2, 3, 4]))
-    print(median_of([1, 2, 3, 4]))
-    print(mode_of([1, 2, 2, 3]))
+to main:
+    say mean_of([1, 2, 3, 4])
+    say median_of([1, 2, 3, 4])
+    say mode_of([1, 2, 2, 3])

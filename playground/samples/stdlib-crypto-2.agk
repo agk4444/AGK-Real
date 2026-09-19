@@ -1,7 +1,7 @@
 import crypto
 
-define function main:
-    print(pbkdf2_hex("password", "salt", 1))
-    print(len(token_hex(16)))
-    print(compare_digest(sha256("abc"), sha256("abc")))
-    print(base64_decode(base64_encode("round trip")))
+to main:
+    say pbkdf2_hex("password", "salt", 1)
+    say len(token_hex(16))
+    say compare_digest(sha256("abc"), sha256("abc"))
+    say base64_decode(base64_encode("round trip"))

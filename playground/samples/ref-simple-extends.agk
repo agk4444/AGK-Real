@@ -3,7 +3,7 @@ class Counter:
     constructor:
         set n to 0
     to bump:
-        set n to n + 1
+        increase n
     to value:
         return n
 

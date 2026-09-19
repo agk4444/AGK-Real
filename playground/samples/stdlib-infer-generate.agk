@@ -1,7 +1,6 @@
 import infer
 
-define function main:
-    create model as List
-    set model to infer_random_model([1, 2, 8, 4, 16, 16, 10], 7)
-    print(infer_decode(model, infer_encode(model, "bead")))
-    print(infer_generate(model, "ab", 6, 0.0))
+to main:
+    model is infer_random_model([1, 2, 8, 4, 16, 16, 10], 7)
+    say infer_decode(model, infer_encode(model, "bead"))
+    say infer_generate(model, "ab", 6, 0.0)

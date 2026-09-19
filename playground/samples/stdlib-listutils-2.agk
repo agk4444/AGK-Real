@@ -1,7 +1,6 @@
 import listutils
 
-define function main:
-    create xs as List
-    set xs to [5, 1, 9, 3]
-    print(sum_list(xs) + max_in_list(xs) + min_in_list(xs))
-    print(contains_int(xs, 9) and not contains_int(xs, 7))
+to main:
+    xs is [5, 1, 9, 3]
+    say sum_list(xs) + max_in_list(xs) + min_in_list(xs)
+    say contains_int(xs, 9) and not contains_int(xs, 7)

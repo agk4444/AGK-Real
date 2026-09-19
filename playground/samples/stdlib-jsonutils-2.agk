@@ -1,8 +1,7 @@
 import jsonutils
 
-define function main:
-    create users as Object
-    set users to parse_json("[{{\"name\": \"amy\", \"tags\": [\"a\", \"b\"]}}]")
-    print(users[0]["name"])
-    print(users[0]["tags"])
-    print(to_json({"ok": true}))
+to main:
+    users is parse_json("[{{\"name\": \"amy\", \"tags\": [\"a\", \"b\"]}}]")
+    say users[0]["name"]
+    say users[0]["tags"]
+    say to_json({"ok": true})

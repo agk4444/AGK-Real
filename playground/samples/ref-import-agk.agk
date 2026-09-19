@@ -1,4 +1,4 @@
 import strutils
 
-define function main:
-    print(shout("done"))
+to main:
+    say shout("done")

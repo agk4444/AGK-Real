@@ -1,6 +1,5 @@
-define function main:
-    create name as String
-    set name to "Gopi"
-    print("Hello, {name}!")
-    print("1 + 2 = {1 + 2}")
-    print("{{braces stay literal}}")
+to main:
+    name is "Gopi"
+    say "Hello, {name}!"
+    say "1 + 2 = {1 + 2}"
+    say "{{braces stay literal}}"

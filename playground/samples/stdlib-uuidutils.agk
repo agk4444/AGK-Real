@@ -1,5 +1,5 @@
 import uuidutils
 
-define function main:
-    print(len(uuid4_hex()) == 32)
-    print(len(uuid4_str()) == 36)
+to main:
+    say len(uuid4_hex()) is 32
+    say len(uuid4_str()) is 36

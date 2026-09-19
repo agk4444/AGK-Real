@@ -1,7 +1,6 @@
 import jsonutils
 
-define function main:
-    create obj as Object
-    set obj to parse_json("{{\"a\": 1}}")
-    print(obj["a"])
-    print(to_json(obj))
+to main:
+    obj is parse_json("{{\"a\": 1}}")
+    say obj["a"]
+    say to_json(obj)
