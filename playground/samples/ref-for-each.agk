@@ -1,0 +1,6 @@
+define function main:
+    create total as Integer
+    set total to 0
+    for each x in [10, 20, 30]:
+        set total to total + x
+    print(total)

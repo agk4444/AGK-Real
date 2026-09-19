@@ -1,0 +1,4 @@
+import tokenizer
+
+define function main:
+    print(tok_estimate("hello world"))

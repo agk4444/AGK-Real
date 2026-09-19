@@ -1,0 +1,9 @@
+to main:
+    secret is 7
+    guess is 5
+    if guess is less than secret:
+        say "too small"
+    otherwise if guess is greater than secret:
+        say "too big"
+    otherwise:
+        say "just right"

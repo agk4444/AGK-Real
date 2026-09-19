@@ -1,0 +1,5 @@
+import uuidutils
+
+define function main:
+    print(len(uuid4_hex()) == 32)
+    print(len(uuid4_str()) == 36)

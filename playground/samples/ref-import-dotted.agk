@@ -1,0 +1,4 @@
+import os.path
+
+define function main:
+    print(os.path.join("a", "b"))

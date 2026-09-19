@@ -1,0 +1,5 @@
+import colorutils
+
+define function main:
+    print(strip_ansi(red("hello")))
+    print(red("hi") != "hi")

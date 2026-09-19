@@ -1,0 +1,12 @@
+define function risky that takes n as Integer:
+    if n < 0:
+        raise "negative!"
+    return 10 / n
+
+define function main:
+    try:
+        print(risky(-1))
+    catch err:
+        print("caught: {err}")
+    finally:
+        print("cleanup runs")

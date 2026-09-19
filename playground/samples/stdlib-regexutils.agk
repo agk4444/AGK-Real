@@ -1,0 +1,7 @@
+import regexutils
+
+define function main:
+    print(regex_match("\\d+", "abc123"))
+    print(regex_find_all("\\d+", "a1b22"))
+    print(regex_replace("\\s+", "-", "a b  c"))
+    print(regex_split(",", "a,b,c"))

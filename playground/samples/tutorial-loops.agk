@@ -1,0 +1,16 @@
+define function main:
+    create i as Integer
+    set i to 3
+    while i > 0:
+        print(i)
+        set i to i - 1
+    print("liftoff")
+    create total as Integer
+    set total to 0
+    for each x in [10, 20, 30]:
+        set total to total + x
+    print(total)
+    for i from 1 to 5:
+        print(i)
+    for i from 10 to 1 step -3:
+        print(i)

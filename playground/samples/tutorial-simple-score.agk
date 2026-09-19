@@ -1,0 +1,6 @@
+to main:
+    score is 0
+    repeat 3 times:
+        increase score by 2
+    decrease score
+    say "score is {score}"

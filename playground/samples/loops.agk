@@ -1,7 +1,0 @@
-to main:
-    repeat 3 times:
-        say "hi"
-    n is 1
-    repeat 3 times:
-        say n
-        increase n

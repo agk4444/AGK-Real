@@ -1,0 +1,4 @@
+import strutils
+
+define function main:
+    print(shout("done"))

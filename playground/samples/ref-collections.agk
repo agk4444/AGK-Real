@@ -1,0 +1,7 @@
+define function main:
+    create xs as List
+    set xs to [1, 2, 3]
+    print(xs[0] + xs[2])
+    create user as Object
+    set user to {"name": "gopi", "id": 7}
+    print(user["name"])

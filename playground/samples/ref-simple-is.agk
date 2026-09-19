@@ -1,0 +1,4 @@
+to main:
+    x is 5
+    x is x + 1
+    say x

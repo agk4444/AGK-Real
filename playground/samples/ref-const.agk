@@ -1,0 +1,4 @@
+define constant PI as Float = 3.14
+
+define function main:
+    print(PI)

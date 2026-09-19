@@ -1,0 +1,7 @@
+import sysutils
+
+define function main:
+    setenv("AGK_DEMO_VAR", "hi")
+    print(getenv("AGK_DEMO_VAR"))
+    print(getenv_or("AGK_NOPE_VAR", "fallback"))
+    print(platform_name() != "")

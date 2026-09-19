@@ -1,0 +1,8 @@
+import mathutils
+
+define function main:
+    print(sqrt_of(2.0))
+    print(floor_of(3.7))
+    print(gcd_of(12, 18))
+    print(factorial_of(5))
+    print(power(2.0, 10.0))

@@ -1,0 +1,9 @@
+import fileutils
+import logutils
+import regexutils
+
+define function main:
+    log_info("app.log", "started")
+    create text as String
+    set text to read_text("app.log")
+    print(regex_match("INFO: started", text))

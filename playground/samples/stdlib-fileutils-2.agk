@@ -1,0 +1,6 @@
+import fileutils
+
+define function main:
+    write_text("log.txt", "line one\n")
+    append_text("log.txt", "line two")
+    print(read_text("log.txt"))

@@ -1,0 +1,10 @@
+to main:
+    n is 10
+    if n is greater than 100:
+        say "huge"
+    otherwise if n is greater than 5:
+        say "big"
+    otherwise:
+        say "small"
+    decrease n by 6
+    say n

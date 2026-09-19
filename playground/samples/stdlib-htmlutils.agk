@@ -1,0 +1,5 @@
+import htmlutils
+
+define function main:
+    print(html_escape("<b>hi & bye</b>"))
+    print(html_unescape("&lt;3"))

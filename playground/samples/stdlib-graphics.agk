@@ -1,0 +1,9 @@
+import graphics
+
+define function main:
+    create c as Object
+    set c to new(16, 12, "#1a1a2e")
+    line(c, 0, 0, 15, 11, "#e94560")
+    rect(c, 2, 2, 5, 4, [0, 255, 0], false)
+    print(get_pixel(c, 0, 0))
+    print(get_pixel(c, 2, 2))

@@ -1,0 +1,8 @@
+import pathutils
+
+define function main:
+    print(join_path("docs", "guide.md"))
+    print(base_name("/tmp/x/report.csv"))
+    print(file_extension("archive.tar.gz"))
+    print(file_stem("/tmp/x/report.csv"))
+    print(norm_path("a//b/./c"))

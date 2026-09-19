@@ -4,12 +4,14 @@ Embeds the whole `agk` package (compiler + stdlib .agk files) as JSON so
 the page can write them into Pyodide's virtual filesystem and compile +
 run AGK entirely in the browser. No server needed.
 
-The sample dropdown is generated from playground/samples/*.agk — every
-sample is written in Simple AGK. Each sample is compile-and-run verified
-against its .expected file at build time, so a broken example can never
-ship in the playground.
+The sample dropdown is generated from playground/samples/*.agk, which is
+extracted from the wiki's verified examples by
+playground/extract_wiki_samples.py. Each sample is compile-and-run
+verified against its .expected file at build time, so a broken example
+can never ship in the playground.
 
-Usage:  python playground/build.py   ->  playground/agk-playground.html
+Usage:  python playground/extract_wiki_samples.py   # refresh samples/
+        python playground/build.py                  # -> agk-playground.html
 """
 
 import io
@@ -24,7 +26,7 @@ OUT = Path(__file__).parent / "agk-playground.html"
 SAMPLES = Path(__file__).parent / "samples"
 
 # Showcased first, then the rest alphabetically.
-FIRST = ["hello", "showcase"]
+FIRST = ["tutorial-hello"]
 
 
 def load_samples():

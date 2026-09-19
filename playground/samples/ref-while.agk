@@ -1,0 +1,7 @@
+define function main:
+    create i as Integer
+    set i to 3
+    while i > 0:
+        print(i)
+        set i to i - 1
+    print("liftoff")

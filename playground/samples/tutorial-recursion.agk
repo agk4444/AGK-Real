@@ -1,0 +1,8 @@
+define function fib that takes n as Integer and returns Integer:
+    if n <= 1:
+        return n
+    else:
+        return fib(n - 1) + fib(n - 2)
+
+define function main:
+    print(fib(10))

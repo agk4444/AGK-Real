@@ -1,0 +1,5 @@
+import regexutils
+
+define function main:
+    print(regex_split("\\s+", "the quick brown fox"))
+    print(len(regex_find_all("[aeiou]", "the quick brown fox")))

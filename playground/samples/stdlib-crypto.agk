@@ -1,0 +1,6 @@
+import crypto
+
+define function main:
+    print(sha256("abc"))
+    print(hmac_sha256("key", "The quick brown fox jumps over the lazy dog"))
+    print(base64_encode("hello, agk"))

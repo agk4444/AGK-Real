@@ -1,0 +1,7 @@
+import csvutils
+
+define function main:
+    create rows as List
+    set rows to [["a,b", "c"], ["d", "e"]]
+    print(csv_parse(csv_to_text(rows)) == rows)
+    print(csv_parse(csv_to_text(rows))[0][0])

@@ -1,0 +1,3 @@
+to main:
+    repeat 3 times:
+        say "hi"

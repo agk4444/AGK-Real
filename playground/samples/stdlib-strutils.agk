@@ -1,0 +1,7 @@
+import strutils
+
+define function main:
+    print(shout("hello"))
+    print(repeat_string("ab", 3))
+    print(join_lines(["a", "b"]))
+    print(slug("Hello World"))

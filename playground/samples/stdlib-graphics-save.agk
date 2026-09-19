@@ -1,0 +1,10 @@
+import graphics
+import fileutils
+
+define function main:
+    create c as Object
+    set c to new(32, 24, "#0d1117")
+    circle(c, 16, 12, 8, "#e94560", true)
+    rect(c, 0, 0, 32, 3, [255, 255, 255], true)
+    print(save_png(c, "badge.png"))
+    print(file_exists("badge.png"))

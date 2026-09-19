@@ -1,0 +1,6 @@
+import iterutils
+
+define function main:
+    print(chunked([1, 2, 3, 4, 5], 2))
+    print(unique([1, 2, 1, 3, 2]))
+    print(pairwise([1, 2, 3]))

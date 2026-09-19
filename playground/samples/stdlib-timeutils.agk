@@ -1,0 +1,6 @@
+import timeutils
+
+define function main:
+    sleep_seconds(0.0)
+    print(epoch_seconds() > 1000000000.0)
+    print(monotonic_seconds() > 0.0)

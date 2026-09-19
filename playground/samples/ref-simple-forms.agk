@@ -1,0 +1,7 @@
+to greet with name:
+    say "hello"
+
+to main:
+    greet("gopi")
+    repeat 2 times:
+        say "hi"

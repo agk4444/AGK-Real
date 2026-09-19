@@ -1,0 +1,9 @@
+define function main:
+    create score as Integer
+    set score to 82
+    if score >= 90:
+        print("A")
+    elif score >= 80:
+        print("B")
+    else:
+        print("keep practicing")

@@ -1,0 +1,4 @@
+import dateutils
+
+define function main:
+    print(add_days("2026-01-01", 7))

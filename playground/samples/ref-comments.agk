@@ -1,0 +1,6 @@
+# a comment runs to end of line
+define function main:
+    # comments can live inside blocks too
+    create n as Integer  # and trail a statement
+    set n to 40 + 2
+    print(n)

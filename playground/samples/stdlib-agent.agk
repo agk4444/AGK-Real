@@ -1,0 +1,7 @@
+import agent
+
+define function main:
+    # max_steps=0: no model call is made, so this runs offline.
+    create result as Object
+    set result to react("Say hi", {}, 0, "gpt-4o-mini", "k", "http://llm.test")
+    print(result)
