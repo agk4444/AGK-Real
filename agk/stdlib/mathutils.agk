@@ -1,0 +1,78 @@
+# AGK-Real standard library: math utilities.
+# Import with: import mathutils
+# (Functions are inlined into your program; call them directly.)
+# Built on Python's math module.
+
+import math
+
+define function pi_value that returns Float:
+    return math.pi
+
+define function e_value that returns Float:
+    return math.e
+
+define function sqrt_of that takes x as Float and returns Float:
+    if x < 0:
+        raise "mathutils.sqrt_of: cannot take the square root of a negative number"
+    return math.sqrt(x)
+
+define function floor_of that takes x as Float and returns Integer:
+    return math.floor(x)
+
+define function ceil_of that takes x as Float and returns Integer:
+    return math.ceil(x)
+
+define function round_to that takes x as Float, n as Integer and returns Float:
+    return round(x, n)
+
+define function sin_of that takes x as Float and returns Float:
+    return math.sin(x)
+
+define function cos_of that takes x as Float and returns Float:
+    return math.cos(x)
+
+define function tan_of that takes x as Float and returns Float:
+    return math.tan(x)
+
+define function ln that takes x as Float and returns Float:
+    if x <= 0:
+        raise "mathutils.ln: x must be positive"
+    return math.log(x)
+
+define function log10_of that takes x as Float and returns Float:
+    if x <= 0:
+        raise "mathutils.log10_of: x must be positive"
+    return math.log10(x)
+
+define function log_base that takes x as Float, base as Float and returns Float:
+    if x <= 0:
+        raise "mathutils.log_base: x must be positive"
+    if base <= 0:
+        raise "mathutils.log_base: base must be positive"
+    return math.log(x, base)
+
+define function exp_of that takes x as Float and returns Float:
+    return math.exp(x)
+
+define function power that takes x as Float, y as Float and returns Float:
+    return math.pow(x, y)
+
+define function gcd_of that takes a as Integer, b as Integer and returns Integer:
+    return math.gcd(a, b)
+
+define function factorial_of that takes n as Integer and returns Integer:
+    if n < 0:
+        raise "mathutils.factorial_of: n must not be negative"
+    return math.factorial(n)
+
+define function to_radians that takes deg as Float and returns Float:
+    return math.radians(deg)
+
+define function to_degrees that takes rad as Float and returns Float:
+    return math.degrees(rad)
+
+define function is_close that takes a as Float, b as Float and returns Boolean:
+    return math.isclose(a, b)
+
+define function hypot_of that takes x as Float, y as Float and returns Float:
+    return math.hypot(x, y)

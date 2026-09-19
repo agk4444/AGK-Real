@@ -271,19 +271,27 @@ def _opt_stmt(s, live_after):
             s.else_body = _opt_block(s.else_body, live_after)[0]
     elif isinstance(s, A.WhileStmt):
         s.condition = _fold_expr(s.condition)
-        # The body loops back to the condition: anything the condition
-        # reads is live at the end of the body.
+        # The body loops back to the condition and to its own top:
+        # anything the condition or the body reads is live at the end
+        # of the body. (Without the body's own reads, a store at the
+        # end of the body feeding a read at the top of the next
+        # iteration would be wrongly dropped as a dead store.)
         s.body = _opt_block(s.body,
-                            live_after | _reads_expr(s.condition))[0]
+                            live_after | _reads_expr(s.condition)
+                            | _reads_block(s.body))[0]
     elif isinstance(s, A.ForEachStmt):
         s.iterable = _fold_expr(s.iterable)
-        s.body = _opt_block(s.body, live_after)[0]
+        # Loop back-edge: the body's own reads are live at its end.
+        s.body = _opt_block(s.body,
+                            live_after | _reads_block(s.body))[0]
     elif isinstance(s, A.ForRangeStmt):
         s.start = _fold_expr(s.start)
         s.end = _fold_expr(s.end)
         if s.step is not None:
             s.step = _fold_expr(s.step)
-        s.body = _opt_block(s.body, live_after)[0]
+        # Loop back-edge: the body's own reads are live at its end.
+        s.body = _opt_block(s.body,
+                            live_after | _reads_block(s.body))[0]
     elif isinstance(s, A.TryStmt):
         # The handlers can run after any point of the try body, so
         # anything they read is live throughout it.

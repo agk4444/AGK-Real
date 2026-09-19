@@ -1,0 +1,37 @@
+# AGK-Real standard library: statistics utilities.
+# Import with: import statutils
+# (Functions are inlined into your program; call them directly.)
+# Descriptive statistics over lists of numbers —
+# built on Python's statistics module.
+
+import statistics
+
+define function mean_of that takes xs as List and returns Float:
+    if len(xs) == 0:
+        raise "statutils.mean_of: empty list"
+    return statistics.mean(xs)
+
+define function median_of that takes xs as List and returns Float:
+    if len(xs) == 0:
+        raise "statutils.median_of: empty list"
+    return statistics.median(xs)
+
+define function stdev_of that takes xs as List and returns Float:
+    if len(xs) < 2:
+        raise "statutils.stdev_of: need at least 2 values"
+    return statistics.stdev(xs)
+
+define function variance_of that takes xs as List and returns Float:
+    if len(xs) < 2:
+        raise "statutils.variance_of: need at least 2 values"
+    return statistics.variance(xs)
+
+define function mode_of that takes xs as List:
+    if len(xs) == 0:
+        raise "statutils.mode_of: empty list"
+    return statistics.mode(xs)
+
+define function min_max_of that takes xs as List and returns List:
+    if len(xs) == 0:
+        raise "statutils.min_max_of: empty list"
+    return [min(xs), max(xs)]

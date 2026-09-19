@@ -249,6 +249,29 @@ def test_store_used_by_while_condition_kept():
     assert any(isinstance(s, A.SetStmt) for s in loop.body)
 
 
+def test_loop_back_edge_store_kept():
+    # A store at the end of a loop body that feeds a read at the top of
+    # the next iteration must survive dead-store elimination (the loop
+    # back-edge makes the body's own reads live at its end).
+    body = opt_main_body(main_src(
+        "create i as Integer", "set i to 0",
+        "for each x in [1, 2, 3]:", "    print(i)", "    set i to 0"))
+    loop = next(s for s in body if isinstance(s, A.ForEachStmt))
+    assert any(isinstance(s, A.SetStmt) and s.name == "i"
+               for s in loop.body)
+
+
+def test_loop_back_edge_store_kept_while():
+    body = opt_main_body(main_src(
+        "create i as Integer", "set i to 0",
+        "create flag as Boolean", "set flag to true",
+        "while flag:", "    print(i)", "    set i to 0",
+        "    set flag to false"))
+    loop = next(s for s in body if isinstance(s, A.WhileStmt))
+    assert any(isinstance(s, A.SetStmt) and s.name == "i"
+               for s in loop.body)
+
+
 def test_try_except_liveness():
     body = opt_main_body(main_src(
         "create x as Integer",

@@ -1,0 +1,27 @@
+# AGK-Real standard library: simple file logging.
+# Import with: import logutils
+# (Functions are inlined into your program; call them directly.)
+# Timestamped log lines appended to a file — no setup, no rotation.
+# For structured or high-volume logging, use Python's logging module.
+
+import datetime
+
+define function log_line that takes path as String, level as String, message as String:
+    create stamp as String
+    set stamp to datetime.datetime.now().isoformat()
+    create f as Object
+    set f to open(path, "a")
+    f.write("[" + stamp + "] " + level + ": " + message + "\n")
+    f.close()
+
+define function log_debug that takes path as String, message as String:
+    log_line(path, "DEBUG", message)
+
+define function log_info that takes path as String, message as String:
+    log_line(path, "INFO", message)
+
+define function log_warn that takes path as String, message as String:
+    log_line(path, "WARN", message)
+
+define function log_error that takes path as String, message as String:
+    log_line(path, "ERROR", message)

@@ -1,0 +1,70 @@
+# AGK-Real standard library: iteration helpers.
+# Import with: import iterutils
+# (Functions are inlined into your program; call them directly.)
+# Chunking, flattening, deduplication, and pairwise combination —
+# written in pure AGK.
+
+define function chunked that takes xs as List, n as Integer and returns List:
+    if n < 1:
+        raise "iterutils.chunked: n must be at least 1"
+    create out as List
+    set out to []
+    create chunk as List
+    set chunk to []
+    create i as Integer
+    set i to 0
+    for each x in xs:
+        chunk.append(x)
+        set i to i + 1
+        if i == n:
+            out.append(chunk)
+            set chunk to []
+            set i to 0
+    if len(chunk) > 0:
+        out.append(chunk)
+    return out
+
+define function flatten that takes xss as List and returns List:
+    create out as List
+    set out to []
+    for each xs in xss:
+        for each x in xs:
+            out.append(x)
+    return out
+
+define function unique that takes xs as List and returns List:
+    create out as List
+    set out to []
+    for each x in xs:
+        create seen as Boolean
+        set seen to false
+        for each y in out:
+            if y == x:
+                set seen to true
+        if seen is false:
+            out.append(x)
+    return out
+
+define function pairwise that takes xs as List and returns List:
+    create out as List
+    set out to []
+    create i as Integer
+    set i to 0
+    while i + 1 < len(xs):
+        out.append([xs[i], xs[i + 1]])
+        set i to i + 1
+    return out
+
+define function zip_lists that takes a as List, b as List and returns List:
+    create out as List
+    set out to []
+    create n as Integer
+    set n to len(a)
+    if len(b) < n:
+        set n to len(b)
+    create i as Integer
+    set i to 0
+    while i < n:
+        out.append([a[i], b[i]])
+        set i to i + 1
+    return out

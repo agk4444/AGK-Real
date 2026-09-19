@@ -270,7 +270,7 @@ define function main:
     print(repeat_string("a", 2))
 ```
 
-See the [[standard library reference|Stdlib-Reference]] for all twelve modules.
+See the [[standard library reference|Stdlib-Reference]] for all twenty-seven modules.
 
 ## 11. Recursion
 

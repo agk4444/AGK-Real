@@ -1,0 +1,27 @@
+# AGK-Real standard library: URL utilities.
+# Import with: import urlutils
+# (Functions are inlined into your program; call them directly.)
+# Percent-encoding, decoding, and URL splitting — built on Python's
+# urllib.parse.
+
+import urllib.parse
+
+define function url_encode that takes s as String and returns String:
+    return urllib.parse.quote(s, "")
+
+define function url_decode that takes s as String and returns String:
+    return urllib.parse.unquote(s)
+
+define function url_join that takes base as String, url as String and returns String:
+    return urllib.parse.urljoin(base, url)
+
+define function url_parts that takes s as String and returns List:
+    create p as Object
+    set p to urllib.parse.urlsplit(s)
+    return [p.scheme, p.netloc, p.path, p.query]
+
+define function url_scheme that takes s as String and returns String:
+    return urllib.parse.urlsplit(s).scheme
+
+define function url_host that takes s as String and returns String:
+    return urllib.parse.urlsplit(s).netloc

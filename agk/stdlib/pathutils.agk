@@ -1,0 +1,30 @@
+# AGK-Real standard library: file path utilities.
+# Import with: import pathutils
+# (Functions are inlined into your program; call them directly.)
+# Pure path manipulation (no disk access) — built on Python's os.path.
+
+import os
+
+define function join_path that takes a as String, b as String and returns String:
+    return os.path.join(a, b)
+
+define function base_name that takes p as String and returns String:
+    return os.path.basename(p)
+
+define function dir_name that takes p as String and returns String:
+    return os.path.dirname(p)
+
+define function abs_path that takes p as String and returns String:
+    return os.path.abspath(p)
+
+define function norm_path that takes p as String and returns String:
+    return os.path.normpath(p)
+
+define function file_extension that takes p as String and returns String:
+    return os.path.splitext(p)[1]
+
+define function file_stem that takes p as String and returns String:
+    return os.path.splitext(os.path.basename(p))[0]
+
+define function is_abs_path that takes p as String and returns Boolean:
+    return os.path.isabs(p)

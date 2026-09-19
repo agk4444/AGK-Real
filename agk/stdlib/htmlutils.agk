@@ -1,0 +1,13 @@
+# AGK-Real standard library: HTML utilities.
+# Import with: import htmlutils
+# (Functions are inlined into your program; call them directly.)
+# Escaping and unescaping for safe HTML output —
+# built on Python's html module.
+
+import html
+
+define function html_escape that takes s as String and returns String:
+    return html.escape(s)
+
+define function html_unescape that takes s as String and returns String:
+    return html.unescape(s)

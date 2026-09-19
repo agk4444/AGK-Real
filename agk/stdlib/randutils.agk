@@ -1,0 +1,34 @@
+# AGK-Real standard library: random number utilities.
+# Import with: import randutils
+# (Functions are inlined into your program; call them directly.)
+# Built on Python's random module. Call seed() first for reproducible results.
+
+import random
+
+define function seed that takes n as Integer:
+    random.seed(n)
+
+define function randint_between that takes a as Integer, b as Integer and returns Integer:
+    return random.randint(a, b)
+
+define function randfloat that returns Float:
+    return random.random()
+
+define function randfloat_between that takes a as Float, b as Float and returns Float:
+    return random.uniform(a, b)
+
+define function choice_of that takes xs as List:
+    if len(xs) == 0:
+        raise "randutils.choice_of: cannot choose from an empty list"
+    return random.choice(xs)
+
+define function shuffle_list that takes xs as List and returns List:
+    random.shuffle(xs)
+    return xs
+
+define function sample_of that takes xs as List, k as Integer and returns List:
+    if k < 0:
+        raise "randutils.sample_of: k must not be negative"
+    if k > len(xs):
+        raise "randutils.sample_of: k is larger than the list"
+    return random.sample(xs, k)

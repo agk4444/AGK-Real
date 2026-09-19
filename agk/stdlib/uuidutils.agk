@@ -1,0 +1,15 @@
+# AGK-Real standard library: UUID generation.
+# Import with: import uuidutils
+# (Functions are inlined into your program; call them directly.)
+# Universally unique identifiers — built on Python's uuid module.
+
+import uuid
+
+define function uuid4_hex that returns String:
+    return uuid.uuid4().hex
+
+define function uuid4_str that returns String:
+    return str(uuid.uuid4())
+
+define function uuid1_hex that returns String:
+    return uuid.uuid1().hex

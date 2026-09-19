@@ -1,6 +1,6 @@
 # Standard library
 
-Twelve `.agk` modules ship with the compiler (in `agk/stdlib/`). Import one by name — `import strutils` — and it is compiled and inlined into your program: its functions become directly callable, no install step, no extra files. Every signature below is taken from the real module source, and every example is compile-and-run verified.
+Twenty-seven `.agk` modules ship with the compiler (in `agk/stdlib/`). Import one by name — `import strutils` — and it is compiled and inlined into your program: its functions become directly callable, no install step, no extra files. Every signature below is taken from the real module source, and every example is compile-and-run verified.
 
 **Modules**
 
@@ -16,6 +16,21 @@ Twelve `.agk` modules ship with the compiler (in `agk/stdlib/`). Import one by n
 - [[crypto|Stdlib-Reference#crypto]]
 - [[graphics|Stdlib-Reference#graphics]]
 - [[agent|Stdlib-Reference#agent]]
+- [[mathutils|Stdlib-Reference#mathutils]]
+- [[randutils|Stdlib-Reference#randutils]]
+- [[timeutils|Stdlib-Reference#timeutils]]
+- [[sysutils|Stdlib-Reference#sysutils]]
+- [[pathutils|Stdlib-Reference#pathutils]]
+- [[urlutils|Stdlib-Reference#urlutils]]
+- [[uuidutils|Stdlib-Reference#uuidutils]]
+- [[ziputils|Stdlib-Reference#ziputils]]
+- [[iniutils|Stdlib-Reference#iniutils]]
+- [[htmlutils|Stdlib-Reference#htmlutils]]
+- [[xmlutils|Stdlib-Reference#xmlutils]]
+- [[statutils|Stdlib-Reference#statutils]]
+- [[iterutils|Stdlib-Reference#iterutils]]
+- [[colorutils|Stdlib-Reference#colorutils]]
+- [[logutils|Stdlib-Reference#logutils]]
 - [[Writing your own module|Stdlib-Reference#writing-your-own-module]]
 
 Bigger end-to-end programs live on the [[Library cookbook|Library-Cookbook]] page: a password-hashing CLI, a generative-art PNG, and a tool-using agent with a mocked LLM.
@@ -457,6 +472,331 @@ define function main:
     create result as Object
     set result to react("Say hi", {}, 0, "gpt-4o-mini", "k", "http://llm.test")
     print(result)
+```
+
+## mathutils
+
+Math helpers. **[stable]**
+
+- `pi_value() -> Float` — π
+- `e_value() -> Float` — e
+- `sqrt_of(x as Float) -> Float` — square root (errors on negatives)
+- `floor_of(x as Float) -> Integer`, `ceil_of(x as Float) -> Integer`
+- `round_to(x as Float, n as Integer) -> Float` — round to `n` decimals
+- `sin_of(x)`, `cos_of(x)`, `tan_of(x) -> Float` — radians
+- `ln(x)`, `log10_of(x)`, `log_base(x, base) -> Float`
+- `exp_of(x)`, `power(x, y) -> Float`
+- `gcd_of(a, b as Integer) -> Integer`
+- `factorial_of(n as Integer) -> Integer`
+- `to_radians(deg)`, `to_degrees(rad) -> Float`
+- `is_close(a, b as Float) -> Boolean`
+- `hypot_of(x, y as Float) -> Float` — √(x² + y²)
+
+<!-- verify: id=stdlib-mathutils output="1.4142135623730951\n3\n6\n120\n1024.0\n" -->
+```agk
+import mathutils
+
+define function main:
+    print(sqrt_of(2.0))
+    print(floor_of(3.7))
+    print(gcd_of(12, 18))
+    print(factorial_of(5))
+    print(power(2.0, 10.0))
+```
+
+## randutils
+
+Random numbers. **[stable]**
+
+Call `seed(n)` first for reproducible results.
+
+- `seed(n as Integer)` — seed the generator
+- `randint_between(a, b as Integer) -> Integer` — inclusive on both ends
+- `randfloat() -> Float` — in [0.0, 1.0)
+- `randfloat_between(a, b as Float) -> Float`
+- `choice_of(xs as List)` — one random element (errors on empty lists)
+- `shuffle_list(xs as List) -> List` — shuffled in place, returned
+- `sample_of(xs as List, k as Integer) -> List` — `k` unique elements
+
+<!-- verify: id=stdlib-randutils output="True\n7\n" -->
+```agk
+import randutils
+
+define function main:
+    seed(42)
+    create a as Integer
+    set a to randint_between(1, 100)
+    seed(42)
+    print(randint_between(1, 100) == a)
+    print(choice_of([7]))
+```
+
+## timeutils
+
+Clocks and sleeping. **[stable]**
+
+- `sleep_seconds(s as Float)` — pause the program
+- `epoch_seconds() -> Float` — Unix timestamp
+- `monotonic_seconds() -> Float` — steady clock, good for timing
+- `cpu_seconds() -> Float` — CPU time used by the process
+- `format_epoch(ts as Float) -> String` — `"YYYY-MM-DD HH:MM:SS"`
+
+<!-- verify: id=stdlib-timeutils output="True\nTrue\n" -->
+```agk
+import timeutils
+
+define function main:
+    sleep_seconds(0.0)
+    print(epoch_seconds() > 1000000000.0)
+    print(monotonic_seconds() > 0.0)
+```
+
+## sysutils
+
+Environment, arguments, and platform. **[stable]**
+
+- `getenv(name as String) -> String` — `""` when unset
+- `getenv_or(name, default as String) -> String`
+- `setenv(name, value as String)` — set for this process
+- `argv() -> List` — command-line arguments (not including the program name)
+- `exit_with_code(n as Integer)` — stop the program with an exit code
+- `platform_name() -> String` — e.g. `"Linux"`
+- `python_version() -> String`
+- `cwd() -> String` — current working directory
+- `home_dir() -> String`
+- `path_sep() -> String` — `"/"` on POSIX, `"\\"` on Windows
+
+<!-- verify: id=stdlib-sysutils output="hi\nfallback\nTrue\n" -->
+```agk
+import sysutils
+
+define function main:
+    setenv("AGK_DEMO_VAR", "hi")
+    print(getenv("AGK_DEMO_VAR"))
+    print(getenv_or("AGK_NOPE_VAR", "fallback"))
+    print(platform_name() != "")
+```
+
+## pathutils
+
+File path manipulation (no disk access). **[stable]**
+
+- `join_path(a, b as String) -> String`
+- `base_name(p as String) -> String` — last component
+- `dir_name(p as String) -> String` — everything but the last component
+- `abs_path(p as String) -> String`
+- `norm_path(p as String) -> String` — collapse `.`, `..`, doubled separators
+- `file_extension(p as String) -> String` — e.g. `".gz"`
+- `file_stem(p as String) -> String` — basename without extension
+- `is_abs_path(p as String) -> Boolean`
+
+<!-- verify: id=stdlib-pathutils output="docs/guide.md\nreport.csv\n.gz\nreport\na/b/c\n" -->
+```agk
+import pathutils
+
+define function main:
+    print(join_path("docs", "guide.md"))
+    print(base_name("/tmp/x/report.csv"))
+    print(file_extension("archive.tar.gz"))
+    print(file_stem("/tmp/x/report.csv"))
+    print(norm_path("a//b/./c"))
+```
+
+## urlutils
+
+URL encoding and splitting. **[stable]**
+
+- `url_encode(s as String) -> String` — percent-encode, e.g. for query values
+- `url_decode(s as String) -> String`
+- `url_join(base, url as String) -> String` — resolve a relative URL
+- `url_parts(s as String) -> List` — `[scheme, host, path, query]`
+- `url_scheme(s as String) -> String`
+- `url_host(s as String) -> String`
+
+<!-- verify: id=stdlib-urlutils output="hello%20world%21\na b\nexample.com:8080\n" -->
+```agk
+import urlutils
+
+define function main:
+    print(url_encode("hello world!"))
+    print(url_decode("a%20b"))
+    print(url_host("https://example.com:8080/p"))
+```
+
+## uuidutils
+
+Universally unique identifiers. **[stable]**
+
+- `uuid4_hex() -> String` — 32 random hex digits
+- `uuid4_str() -> String` — canonical `"8-4-4-4-12"` form
+- `uuid1_hex() -> String` — time-based, 32 hex digits
+
+<!-- verify: id=stdlib-uuidutils output="True\nTrue\n" -->
+```agk
+import uuidutils
+
+define function main:
+    print(len(uuid4_hex()) == 32)
+    print(len(uuid4_str()) == 36)
+```
+
+## ziputils
+
+Compression and zip archives. **[stable]**
+
+`gzip_compress` returns hex text so compressed bytes travel as an AGK `String`.
+
+- `gzip_compress(s as String) -> String`
+- `gzip_decompress(h as String) -> String`
+- `zip_create(zip_path as String, files as List)` — archive files by path
+- `zip_list(zip_path as String) -> List` — names in the archive
+- `zip_read_text(zip_path, name as String) -> String`
+
+<!-- verify: id=stdlib-ziputils output="hello, agk!\n" -->
+```agk
+import ziputils
+
+define function main:
+    create h as String
+    set h to gzip_compress("hello, agk!")
+    print(gzip_decompress(h))
+```
+
+## iniutils
+
+Classic INI config files (`[section]` / `key = value`). **[stable]**
+
+- `ini_get(path, section, key as String) -> String` — `""` when missing
+- `ini_get_or(path, section, key, default as String) -> String`
+- `ini_has(path, section, key as String) -> Boolean`
+- `ini_has_section(path, section as String) -> Boolean`
+- `ini_sections(path as String) -> List`
+- `ini_keys(path, section as String) -> List`
+
+<!-- verify: id=stdlib-iniutils output="example.com\nTrue\n['server']\n" -->
+```agk
+import fileutils
+import iniutils
+
+define function main:
+    write_text("app.ini", "[server]\nhost = example.com\nport = 8080\n")
+    print(ini_get("app.ini", "server", "host"))
+    print(ini_has("app.ini", "server", "port"))
+    print(ini_sections("app.ini"))
+```
+
+## htmlutils
+
+HTML escaping. **[stable]**
+
+- `html_escape(s as String) -> String` — `&`, `<`, `>`, quotes
+- `html_unescape(s as String) -> String`
+
+<!-- verify: id=stdlib-htmlutils output="&lt;b&gt;hi &amp; bye&lt;/b&gt;\n<3\n" -->
+```agk
+import htmlutils
+
+define function main:
+    print(html_escape("<b>hi & bye</b>"))
+    print(html_unescape("&lt;3"))
+```
+
+## xmlutils
+
+Tag lookup for small XML documents. **[stable]**
+
+- `xml_root_tag(xml_text as String) -> String`
+- `xml_find_texts(xml_text, tag as String) -> List` — text of every `<tag>`
+- `xml_find_attr(xml_text, tag, attr as String) -> String` — first match's attribute, `""` when absent
+
+<!-- verify: id=stdlib-xmlutils output="catalog\n['one', 'two']\n" -->
+```agk
+import xmlutils
+
+define function main:
+    create doc as String
+    set doc to "<catalog><item>one</item><item>two</item></catalog>"
+    print(xml_root_tag(doc))
+    print(xml_find_texts(doc, "item"))
+```
+
+## statutils
+
+Descriptive statistics over lists of numbers. **[stable]**
+
+- `mean_of(xs as List) -> Float`
+- `median_of(xs as List) -> Float`
+- `stdev_of(xs as List) -> Float` — sample standard deviation
+- `variance_of(xs as List) -> Float` — sample variance
+- `mode_of(xs as List)` — most common value
+- `min_max_of(xs as List) -> List` — `[min, max]`
+
+<!-- verify: id=stdlib-statutils output="2.5\n2.5\n2\n" -->
+```agk
+import statutils
+
+define function main:
+    print(mean_of([1, 2, 3, 4]))
+    print(median_of([1, 2, 3, 4]))
+    print(mode_of([1, 2, 2, 3]))
+```
+
+## iterutils
+
+Iteration helpers, written in pure AGK. **[stable]**
+
+- `chunked(xs as List, n as Integer) -> List` — split into groups of `n`
+- `flatten(xss as List) -> List` — one level
+- `unique(xs as List) -> List` — deduplicate, order kept
+- `pairwise(xs as List) -> List` — `[[a, b], [b, c], ...]`
+- `zip_lists(a, b as List) -> List` — pairs, stops at the shorter list
+
+<!-- verify: id=stdlib-iterutils output="[[1, 2], [3, 4], [5]]\n[1, 2, 3]\n[[1, 2], [2, 3]]\n" -->
+```agk
+import iterutils
+
+define function main:
+    print(chunked([1, 2, 3, 4, 5], 2))
+    print(unique([1, 2, 1, 3, 2]))
+    print(pairwise([1, 2, 3]))
+```
+
+## colorutils
+
+ANSI terminal colors for CLI output. **[stable]**
+
+Colors only render on ANSI-capable terminals; `strip_ansi` removes them again.
+
+- `red(s)`, `green(s)`, `yellow(s)`, `blue(s)`, `magenta(s)`, `cyan(s)`, `bold(s) -> String`
+- `strip_ansi(s as String) -> String`
+
+<!-- verify: id=stdlib-colorutils output="hello\nTrue\n" -->
+```agk
+import colorutils
+
+define function main:
+    print(strip_ansi(red("hello")))
+    print(red("hi") != "hi")
+```
+
+## logutils
+
+Timestamped log lines appended to a file. **[stable]**
+
+- `log_line(path, level, message as String)`
+- `log_debug(path, message)`, `log_info(path, message)`, `log_warn(path, message)`, `log_error(path, message)`
+
+<!-- verify: id=stdlib-logutils output="True\n" -->
+```agk
+import fileutils
+import logutils
+import regexutils
+
+define function main:
+    log_info("app.log", "started")
+    create text as String
+    set text to read_text("app.log")
+    print(regex_match("INFO: started", text))
 ```
 
 ## Writing your own module

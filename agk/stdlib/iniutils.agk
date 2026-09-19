@@ -1,0 +1,49 @@
+# AGK-Real standard library: INI config file utilities.
+# Import with: import iniutils
+# (Functions are inlined into your program; call them directly.)
+# Reads classic "section / key = value" config files —
+# built on Python's configparser.
+
+import configparser
+
+define function ini_get that takes path as String, section as String, key as String and returns String:
+    create cp as Object
+    set cp to configparser.ConfigParser()
+    cp.read(path)
+    if cp.has_option(section, key) is false:
+        return ""
+    return cp.get(section, key)
+
+define function ini_get_or that takes path as String, section as String, key as String, default as String and returns String:
+    create cp as Object
+    set cp to configparser.ConfigParser()
+    cp.read(path)
+    if cp.has_option(section, key) is false:
+        return default
+    return cp.get(section, key)
+
+define function ini_has that takes path as String, section as String, key as String and returns Boolean:
+    create cp as Object
+    set cp to configparser.ConfigParser()
+    cp.read(path)
+    return cp.has_option(section, key)
+
+define function ini_has_section that takes path as String, section as String and returns Boolean:
+    create cp as Object
+    set cp to configparser.ConfigParser()
+    cp.read(path)
+    return cp.has_section(section)
+
+define function ini_sections that takes path as String and returns List:
+    create cp as Object
+    set cp to configparser.ConfigParser()
+    cp.read(path)
+    return cp.sections()
+
+define function ini_keys that takes path as String, section as String and returns List:
+    create cp as Object
+    set cp to configparser.ConfigParser()
+    cp.read(path)
+    if cp.has_section(section) is false:
+        raise "iniutils.ini_keys: no such section '{section}'"
+    return cp.options(section)

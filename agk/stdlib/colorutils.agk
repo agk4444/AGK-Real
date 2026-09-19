@@ -1,0 +1,49 @@
+# AGK-Real standard library: terminal colors.
+# Import with: import colorutils
+# (Functions are inlined into your program; call them directly.)
+# ANSI color helpers for CLI output. Colors only render on terminals
+# that understand ANSI escapes; strip_ansi removes them again.
+
+import unicodedata
+import re
+
+define function _esc_code that returns String:
+    return unicodedata.lookup("ESCAPE")
+
+define function red that takes s as String and returns String:
+    create e as String
+    set e to _esc_code()
+    return e + "[31m" + s + e + "[0m"
+
+define function green that takes s as String and returns String:
+    create e as String
+    set e to _esc_code()
+    return e + "[32m" + s + e + "[0m"
+
+define function yellow that takes s as String and returns String:
+    create e as String
+    set e to _esc_code()
+    return e + "[33m" + s + e + "[0m"
+
+define function blue that takes s as String and returns String:
+    create e as String
+    set e to _esc_code()
+    return e + "[34m" + s + e + "[0m"
+
+define function magenta that takes s as String and returns String:
+    create e as String
+    set e to _esc_code()
+    return e + "[35m" + s + e + "[0m"
+
+define function cyan that takes s as String and returns String:
+    create e as String
+    set e to _esc_code()
+    return e + "[36m" + s + e + "[0m"
+
+define function bold that takes s as String and returns String:
+    create e as String
+    set e to _esc_code()
+    return e + "[1m" + s + e + "[0m"
+
+define function strip_ansi that takes s as String and returns String:
+    return re.sub(_esc_code() + "\\[[0-9;]*m", "", s)

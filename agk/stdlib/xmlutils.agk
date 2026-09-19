@@ -1,0 +1,41 @@
+# AGK-Real standard library: simple XML utilities.
+# Import with: import xmlutils
+# (Functions are inlined into your program; call them directly.)
+# Tag lookup for small XML documents — built on Python's
+# xml.etree.ElementTree. For large or namespace-heavy XML, use
+# Python's xml libraries directly.
+
+import xml.etree.ElementTree
+
+define function xml_root_tag that takes xml_text as String and returns String:
+    create root as Object
+    try:
+        set root to xml.etree.ElementTree.fromstring(xml_text)
+    catch:
+        raise "xmlutils: invalid XML"
+    return root.tag
+
+define function xml_find_texts that takes xml_text as String, tag as String and returns List:
+    create root as Object
+    try:
+        set root to xml.etree.ElementTree.fromstring(xml_text)
+    catch:
+        raise "xmlutils: invalid XML"
+    create out as List
+    set out to []
+    for each el in root.iter(tag):
+        out.append(el.text)
+    return out
+
+define function xml_find_attr that takes xml_text as String, tag as String, attr as String and returns String:
+    create root as Object
+    try:
+        set root to xml.etree.ElementTree.fromstring(xml_text)
+    catch:
+        raise "xmlutils: invalid XML"
+    for each el in root.iter(tag):
+        create v as String
+        set v to el.attrib.get(attr, "")
+        if v is not "":
+            return v
+    return ""

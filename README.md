@@ -43,10 +43,12 @@ Also in: static type checker, optimizer (constant folding, dead-code and
 dead-store elimination), debugger (`agk debug`), test runner
 (`agk test`), formatter (`agk fmt`), package manager (`agk pkg`),
 LSP server, `.agk` module imports, exceptions, string interpolation,
-async/await, generators, decorators, FFI (`extern`), and twelve bundled
+async/await, generators, decorators, FFI (`extern`), and twenty-seven bundled
 stdlib modules: `strutils`, `listutils`, `fileutils`, `jsonutils`,
 `httputils`, `dateutils`, `csvutils`, `regexutils`, `sqliteutils`,
-`crypto`, `graphics`, `agent`.
+`crypto`, `graphics`, `agent`, `mathutils`, `randutils`, `timeutils`,
+`sysutils`, `pathutils`, `urlutils`, `uuidutils`, `ziputils`, `iniutils`,
+`htmlutils`, `xmlutils`, `statutils`, `iterutils`, `colorutils`, `logutils`.
 
 See the [changelog](https://github.com/agk4444/AGK-Real/wiki/Changelog)
 for the full release history.

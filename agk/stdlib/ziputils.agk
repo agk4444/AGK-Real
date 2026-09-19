@@ -1,0 +1,47 @@
+# AGK-Real standard library: compression and zip archives.
+# Import with: import ziputils
+# (Functions are inlined into your program; call them directly.)
+# gzip for strings (compressed bytes travel as hex text) and zipfile
+# for archives — built on Python's gzip / zipfile / codecs.
+
+import gzip
+import zipfile
+import codecs
+
+define function gzip_compress that takes s as String and returns String:
+    return gzip.compress(s.encode("utf-8")).hex()
+
+define function gzip_decompress that takes h as String and returns String:
+    create raw as Object
+    try:
+        set raw to gzip.decompress(codecs.decode(h, "hex"))
+    catch:
+        raise "ziputils.gzip_decompress: input is not valid compressed data"
+    return raw.decode("utf-8")
+
+define function zip_create that takes zip_path as String, files as List:
+    create zf as Object
+    set zf to zipfile.ZipFile(zip_path, "w")
+    for each f in files:
+        zf.write(f)
+    zf.close()
+
+define function zip_list that takes zip_path as String and returns List:
+    create zf as Object
+    set zf to zipfile.ZipFile(zip_path, "r")
+    create names as List
+    set names to zf.namelist()
+    zf.close()
+    return names
+
+define function zip_read_text that takes zip_path as String, name as String and returns String:
+    create zf as Object
+    set zf to zipfile.ZipFile(zip_path, "r")
+    create data as String
+    try:
+        set data to zf.read(name).decode("utf-8")
+    catch:
+        zf.close()
+        raise "ziputils.zip_read_text: no such file '{name}' in archive"
+    zf.close()
+    return data

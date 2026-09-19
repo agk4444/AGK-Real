@@ -1,0 +1,23 @@
+# AGK-Real standard library: time utilities.
+# Import with: import timeutils
+# (Functions are inlined into your program; call them directly.)
+# Built on Python's time module. All times are in seconds.
+
+import time
+
+define function sleep_seconds that takes s as Float:
+    if s < 0:
+        raise "timeutils.sleep_seconds: seconds must not be negative"
+    time.sleep(s)
+
+define function epoch_seconds that returns Float:
+    return time.time()
+
+define function monotonic_seconds that returns Float:
+    return time.monotonic()
+
+define function cpu_seconds that returns Float:
+    return time.process_time()
+
+define function format_epoch that takes ts as Float and returns String:
+    return time.strftime("%Y-%m-%d %H:%M:%S", time.localtime(ts))

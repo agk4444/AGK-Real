@@ -1,0 +1,48 @@
+# AGK-Real standard library: system utilities.
+# Import with: import sysutils
+# (Functions are inlined into your program; call them directly.)
+# Environment variables, command-line arguments, and platform info —
+# built on Python's os / sys / platform modules.
+
+import os
+import sys
+import platform
+
+define function getenv that takes name as String and returns String:
+    return os.environ.get(name, "")
+
+define function getenv_or that takes name as String, default as String and returns String:
+    return os.environ.get(name, default)
+
+define function setenv that takes name as String, value as String:
+    os.environ.update({name: value})
+
+define function argv that returns List:
+    create out as List
+    set out to []
+    create first as Boolean
+    set first to true
+    for each a in sys.argv:
+        if first:
+            set first to false
+        otherwise:
+            out.append(a)
+    return out
+
+define function exit_with_code that takes n as Integer:
+    sys.exit(n)
+
+define function platform_name that returns String:
+    return platform.system()
+
+define function python_version that returns String:
+    return platform.python_version()
+
+define function cwd that returns String:
+    return os.getcwd()
+
+define function home_dir that returns String:
+    return os.path.expanduser("~")
+
+define function path_sep that returns String:
+    return os.sep
