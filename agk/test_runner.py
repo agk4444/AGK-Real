@@ -37,6 +37,7 @@ from .errors import AGKError
 from .mock import MOCK_PRELUDE, install_helpers
 from .pipeline import (STDLIB_DIR, agk_line_map, compile_source,
                        format_agk_traceback)
+from .pkg import find_project_root
 
 
 def collect(path):
@@ -195,8 +196,20 @@ def _run_file(path, results, coverage=None):
         results.append((str(path), False))
         return False
     try:
+        # Inside a project (nearest agk.json ancestor), tests may import
+        # modules from the project root or its src/ directory (e.g.
+        # src/<mod>.agk from an `agk new` skeleton) in addition to their
+        # own directory.
+        search = [str(path.parent)]
+        root = find_project_root(path.parent)
+        if root is not None:
+            root = Path(root)
+            if root != path.parent.resolve():
+                for cand in (root / "src", root):
+                    if cand.is_dir() and str(cand) not in search:
+                        search.append(str(cand))
         code, warnings = compile_source(
-            src, filename=str(path), search_paths=[str(path.parent)],
+            src, filename=str(path), search_paths=search,
             annotate=True, extra_top_levels=(MOCK_PRELUDE,))
     except AGKError as e:
         print(f"{path}: {e}", file=sys.stderr)

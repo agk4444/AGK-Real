@@ -14,6 +14,9 @@
                                          coverage table
     python -m agk fmt [--check] <file.agk>   canonical formatting (rewrite in
                                              place, or just check with --check)
+    python -m agk new <name> [--lib] [--force]
+                                         scaffold a new app (default) or
+                                         library project
     python -m agk pkg init [--name NAME] [--version VER]
     python -m agk pkg install <git-url-or-path> [--name NAME]
     python -m agk pkg list
@@ -37,6 +40,7 @@ from .pipeline import (CACHE_DIR_NAME, compile_source, compile_source_cached,
                        format_agk_traceback, wipe_cache)
 from .pkg import PkgError, cmd_init, cmd_install, cmd_list
 from .repl import repl
+from .scaffold import ScaffoldError, describe, scaffold
 from .test_runner import run_tests
 
 USAGE = __doc__
@@ -150,6 +154,29 @@ def cmd_fmt(path, check=False):
     except OSError as e:
         print(f"agk: cannot write '{path}': {e.strerror}", file=sys.stderr)
         raise SystemExit(2)
+    return 0
+
+
+def cmd_new(args):
+    kind = "app"
+    force = False
+    rest = []
+    for a in args:
+        if a == "--lib":
+            kind = "lib"
+        elif a == "--force":
+            force = True
+        else:
+            rest.append(a)
+    if len(rest) != 1:
+        print("agk new <name> [--lib] [--force]", file=sys.stderr)
+        return 2
+    try:
+        root = scaffold(rest[0], kind=kind, force=force)
+    except ScaffoldError as e:
+        print(f"agk new: {e}", file=sys.stderr)
+        return 2
+    print(describe(root, kind))
     return 0
 
 
@@ -275,6 +302,8 @@ def main(argv=None):
         return run_tests(args[0] if args else ".", coverage=coverage)
     if cmd == "pkg":
         return cmd_pkg(rest)
+    if cmd == "new":
+        return cmd_new(rest)
     if cmd == "fmt":
         check = bool(rest) and rest[0] == "--check"
         args = rest[1:] if check else rest

@@ -9,6 +9,7 @@ The `agk` command (installed by `pip install .`). Without installing, prefix eve
 - [[`agk check`|CLI-Reference#agk-check-fileagk]]
 - [[`agk test`|CLI-Reference#agk-test-path]]
 - [[`agk fmt`|CLI-Reference#agk-fmt---check-fileagk]]
+- [[`agk new`|CLI-Reference#agk-new-name---lib---force]]
 - [[`agk repl`|CLI-Reference#agk-repl-or-bare-agk]]
 - [[LSP server|CLI-Reference#lsp-server]]
 - [[Exit codes|CLI-Reference#exit-codes]]
@@ -75,6 +76,39 @@ $ agk fmt game.agk            # rewrite game.agk in place
 $ agk fmt --check game.agk    # exit 0 if canonical, 1 if it would reformat
 ok
 ```
+
+## `agk new <name> [--lib] [--force]`
+
+Scaffold a new project: `agk.json` manifest, `README.md`, `.gitignore`,
+`src/` sources, and `tests/` with passing starter tests. An app gets an
+entry point (`src/main.agk` plus a `greeter` module); `--lib` makes a
+library project with no entry point. Refuses to write into a non-empty
+directory unless `--force` is given. Names must be valid module names
+(letters, digits, underscores; not starting with a digit).
+
+```sh
+$ agk new myapp
+created myapp/
+  .gitignore
+  README.md
+  agk.json
+  src/
+    greeter.agk
+    main.agk
+  tests/
+    greeter_test.agk
+
+next: cd myapp && agk run src/main.agk
+
+$ cd myapp && agk run src/main.agk
+Hello, AGK!
+$ agk test
+2 passed, 0 failed
+```
+
+Inside a project (a directory tree with `agk.json`), `agk test` files may
+`import` modules from the project root or its `src/` directory as well as
+their own directory.
 
 ## `agk repl` (or bare `agk`)
 
